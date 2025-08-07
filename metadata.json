@@ -1,0 +1,9 @@
+{
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "name": "Gemini AI Chat",
+  "description": "",
+  "prompt": ""
+}

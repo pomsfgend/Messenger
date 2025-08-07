@@ -1,0 +1,87 @@
+.video-call-container {
+    @apply fixed inset-0 z-[190] bg-slate-900/90 backdrop-blur-lg flex flex-col;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.video-grid {
+    @apply flex-1 grid gap-4 p-4 transition-all duration-300;
+}
+
+/* Default state: one remote video, one small local video */
+.video-grid {
+    grid-template-areas: "main";
+    grid-template-rows: 1fr;
+    grid-template-columns: 1fr;
+}
+
+.remote-video-wrapper {
+    @apply w-full h-full bg-black rounded-lg overflow-hidden flex items-center justify-center;
+    grid-area: main;
+}
+
+.local-video-wrapper {
+    @apply absolute bottom-6 right-6 w-48 h-36 bg-black rounded-lg overflow-hidden shadow-2xl z-10;
+    @apply transition-all duration-300 ease-in-out;
+    border: 2px solid rgba(var(--color-border-primary), 0.3);
+}
+
+.local-video-wrapper.swapped {
+    @apply w-full h-full top-0 left-0 rounded-none border-none;
+    grid-area: main;
+}
+
+.remote-video-wrapper.swapped {
+     @apply absolute bottom-6 right-6 w-48 h-36 bg-black rounded-lg overflow-hidden shadow-2xl z-10;
+    @apply transition-all duration-300 ease-in-out;
+    border: 2px solid rgba(var(--color-border-primary), 0.3);
+}
+
+
+.video-element {
+    @apply w-full h-full object-cover;
+}
+
+.controls-bar {
+    @apply flex justify-center items-center gap-4 p-4 bg-black/30;
+}
+
+.control-btn {
+    @apply w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200;
+    @apply text-white;
+}
+
+.control-btn.active {
+    background-color: rgba(var(--color-accent-primary), 0.8);
+}
+
+.control-btn.inactive {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.control-btn.end-call {
+    @apply bg-red-600;
+    animation: ring 1.5s infinite;
+}
+
+.control-btn:hover {
+    transform: scale(1.1);
+}
+
+.status-bar {
+    @apply absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-4 py-2 rounded-full;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    .local-video-wrapper, .remote-video-wrapper.swapped {
+        width: 120px;
+        height: 160px; /* Portrait aspect ratio */
+        bottom: 100px; /* Move up to not be covered by controls */
+        right: 1rem;
+    }
+}

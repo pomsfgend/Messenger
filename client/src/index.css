@@ -1,0 +1,257 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --app-height: 100vh;
+  /* Base Cyberpunk Theme Colors */
+  --deep-space: 10 10 20;
+  --void: 18 18 32;
+  --glass-bg: 80 80 110; /* Lighter glass for better contrast */
+  --text-light: 224 224 255;
+  --text-bright: 255 255 255;
+  --glass-border: 255 255 255;
+  --shadow-color: 0 247 255;
+  
+  /* Default Theme (Indigo) */
+  --color-accent-primary: 79 70 229;
+  --color-accent-secondary: 165 180 252;
+}
+
+/* Theme Overrides - These classes will be applied to the root element */
+.theme-indigo { --color-accent-primary: 79 70 229; --color-accent-secondary: 165 180 252; }
+.theme-crimson { --color-accent-primary: 220 38 38; --color-accent-secondary: 252 165 165; }
+.theme-forest { --color-accent-primary: 22 163 74; --color-accent-secondary: 134 239 172; }
+.theme-ocean { --color-accent-primary: 14 165 233; --color-accent-secondary: 125 211 252; }
+.theme-amber { --color-accent-primary: 217 119 6; --color-accent-secondary: 252 211 77; }
+.theme-cyan { --color-accent-primary: 8 145 178; --color-accent-secondary: 103 232 249; }
+.theme-violet { --color-accent-primary: 124 58 237; --color-accent-secondary: 196 181 253; }
+
+
+/* Light mode is a separate style set */
+.light {
+  --deep-space: 241 245 249;
+  --void: 255 255 255;
+  --glass-bg: 255 255 255;
+  --text-light: 30 41 59;
+  --text-bright: 15 23 42;
+  --glass-border: 226 232 240;
+}
+
+/* Base Mappings */
+:root, .dark {
+  --color-bg-primary: var(--deep-space);
+  --color-bg-secondary: var(--void);
+  --color-bg-tertiary: var(--glass-bg);
+  --color-text-primary: var(--text-light);
+  --color-text-secondary: var(--color-accent-secondary);
+  --color-border-primary: var(--glass-border);
+}
+.light {
+  --color-bg-primary: var(--deep-space);
+  --color-bg-secondary: var(--void);
+  --color-text-primary: var(--text-light);
+  --color-text-secondary: var(--color-accent-primary);
+  --color-border-primary: var(--glass-border);
+}
+
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--color-accent-primary), 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--color-accent-primary), 0.6);
+}
+
+@layer base {
+    body {
+        color: rgb(var(--color-text-primary));
+        perspective: 1000px;
+        background-color: rgb(var(--color-bg-primary));
+        overflow-x: hidden;
+    }
+    .soft-panel {
+        @apply rounded-2xl p-4;
+        background: rgba(var(--glass-bg), 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(var(--color-border-primary), 0.2);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    }
+    .soft-panel-inset {
+        @apply rounded-lg;
+        background-color: rgba(var(--deep-space), 0.8);
+        box-shadow: inset 2px 2px 5px #00000030, inset -2px -2px 5px rgba(255,255,255,0.05);
+    }
+    .btn-primary {
+        @apply font-bold py-2 px-4 rounded-lg transition-all;
+        background: rgba(var(--color-accent-primary), 0.1);
+        color: rgb(var(--text-bright));
+        border: 1px solid rgb(var(--color-accent-primary));
+        text-shadow: 0 0 5px rgba(var(--color-accent-primary), 0.7);
+    }
+    .btn-primary:hover:not(:disabled) {
+       background: rgba(var(--color-accent-primary), 0.2);
+       box-shadow: 0 0 15px rgba(var(--color-accent-primary), 0.5);
+       transform: translateY(-2px);
+    }
+    .btn-primary:disabled {
+       opacity: 0.5;
+       cursor: not-allowed;
+    }
+    .admin-table-wrapper {
+        @apply overflow-x-auto;
+    }
+}
+
+@layer components {
+    .call-ui {
+        @apply fixed bottom-5 right-5 w-[300px] rounded-2xl shadow-2xl z-[1000] transition-all duration-300 overflow-hidden;
+        background-color: rgb(var(--color-bg-secondary));
+        border: 1px solid rgba(var(--color-border-primary), 0.2);
+    }
+    .remote-video {
+        @apply w-full h-full object-cover rounded-t-2xl;
+        background-color: rgb(var(--deep-space));
+        aspect-ratio: 3/4;
+    }
+    .local-video {
+        @apply w-[100px] absolute bottom-20 right-2.5 border-2 rounded-lg shadow-md;
+        border-color: rgb(var(--color-accent-primary));
+    }
+    .call-controls {
+        @apply absolute bottom-0 left-0 right-0 flex justify-center gap-4 p-3;
+        background: linear-gradient(to top, rgba(var(--color-bg-secondary), 0.9), transparent);
+    }
+    .call-control-btn {
+      @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200;
+      background-color: rgba(var(--color-bg-tertiary), 0.8);
+    }
+    .call-control-btn.danger {
+      background-color: rgba(220, 38, 38, 0.8);
+    }
+    .call-control-btn:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.2);
+    }
+
+    /* Mobile-first Call UI Overrides */
+    .call-ui.mobile-fullscreen {
+        @apply fixed inset-0 w-full h-full rounded-none z-[2000];
+        background-color: rgb(var(--deep-space));
+    }
+    .call-ui.mobile-fullscreen .remote-video {
+        @apply w-full h-full object-cover rounded-none;
+    }
+    .call-ui.mobile-fullscreen .local-video {
+        @apply absolute bottom-24 right-4 w-1/4 max-w-[120px] rounded-lg border-2;
+        border-color: rgb(var(--color-accent-primary));
+    }
+    .call-ui.mobile-fullscreen .call-controls {
+        @apply absolute bottom-6 left-0 right-0 flex justify-center gap-6 p-4;
+        background: none;
+    }
+    .call-ui.mobile-fullscreen .call-control-btn {
+        @apply w-16 h-16;
+    }
+
+    /* Message Skeleton Styles */
+    .skeleton-bubble {
+        @apply p-3 rounded-lg bg-slate-200 dark:bg-slate-700;
+        width: 60%;
+    }
+    .skeleton-line {
+        @apply h-4 bg-slate-300 dark:bg-slate-600 rounded animate-pulse;
+    }
+    
+    /* Reaction Bubble Styles */
+    .reaction-bubble {
+        @apply absolute -bottom-3;
+        @apply flex gap-1 p-1 rounded-full text-xs;
+        background-color: rgb(var(--color-bg-secondary));
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .reaction-bubble.own {
+        @apply right-1;
+    }
+    .reaction-bubble.other {
+        @apply left-1;
+    }
+    
+    .reaction-pill {
+        @apply px-2 py-0.5 rounded-full cursor-pointer transition-colors;
+    }
+    
+    .reaction-pill.selected {
+        @apply bg-indigo-500 text-white;
+    }
+    
+    .reaction-pill.unselected {
+        @apply bg-white dark:bg-slate-700;
+    }
+}
+
+
+.auth-neon-title {
+    /* Hardcoded neon purple effect with flickering */
+    color: #e0cffc;
+    animation: flicker 4s infinite alternate;
+}
+
+@keyframes flicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% {
+    opacity: 1;
+    text-shadow:
+        0 0 7px #c084fc,   /* purple-400 for a bright, immediate glow */
+        0 0 10px #c084fc,
+        0 0 21px #c084fc,
+        0 0 42px #9333ea,  /* purple-600 for a deeper, wider glow */
+        0 0 82px #9333ea,
+        0 0 92px #9333ea;
+  }
+  20%, 24%, 55% {
+    opacity: 0.4;
+    text-shadow: none;
+  }
+}
+
+
+/* Keyframes for deleted message countdown */
+@keyframes shrink-width-and-fade {
+  0% {
+    width: 100%;
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    width: 0%;
+    opacity: 0;
+  }
+}
+
+.animate-deleted-message {
+  animation: shrink-width-and-fade 5s linear forwards;
+}
+
+/* Mobile Specific Fixes */
+@media (max-width: 768px) {
+    .call-ui.mobile-fullscreen .call-controls {
+      flex-direction: row; /* Ensure it's a row */
+    }
+    
+    .message-input-area {
+        flex-direction: row; /* Override potential column layout */
+    }
+}

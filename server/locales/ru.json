@@ -1,0 +1,11 @@
+{
+	"login": {
+		"invalidCredentials": "login.invalidCredentials"
+	},
+	"toast": {
+		"codeSent": "toast.codeSent"
+	},
+	"telegram": {
+		"codeMessage": "telegram.codeMessage"
+	}
+}
