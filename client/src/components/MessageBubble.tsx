@@ -224,7 +224,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     ].join(' ');
 
     const bubbleInnerClasses = [
-        'flex items-end gap-3 group',
+        'flex items-end gap-3 group relative', // Added relative for action buttons
         selectionMode ? 'cursor-pointer' : '',
     ].filter(Boolean).join(' ');
 
@@ -323,6 +323,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                         <Avatar user={sender || {}} size="small" />
                     </div>
                 )}
+
+                {isOwn && !selectionMode && (
+                    <div className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => onContextMenu(e, message)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
+                        </button>
+                    </div>
+                )}
+                
                 <div className={`relative ${isOwn ? 'items-end' : 'items-start'} flex flex-col min-w-0`}>
                     <div className="flex items-center gap-2 relative">
                         {selectionMode && (
@@ -393,6 +402,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                          )}
                     </div>
                 </div>
+                 {!isOwn && !selectionMode && (
+                    <div className="absolute right-0 top-1/2 translate-x-full -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => onContextMenu(e, message)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

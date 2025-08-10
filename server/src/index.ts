@@ -1,4 +1,5 @@
-import express from 'express';
+
+import express, { Request, Response, NextFunction } from 'express';
 import './types'; // Import for declaration merging
 import http from 'http';
 import https from 'https';
@@ -165,10 +166,10 @@ const startServer = async () => {
         app.use('/api/turn-creds', protect, turnRoutes); // TURN credentials endpoint
 
         // Health check endpoint
-        app.get('/api/health', (req: express.Request, res: express.Response) => res.status(200).json({ status: 'ok' }));
+        app.get('/api/health', (req: Request, res: Response) => res.status(200).json({ status: 'ok' }));
 
         // Global error handler
-        app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
             console.error("Global error handler caught:", err.stack);
             if (err instanceof MulterError) {
                 return res.status(400).json({ message: `File upload error: ${err.message}` });

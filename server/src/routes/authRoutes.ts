@@ -1,4 +1,5 @@
-import express from 'express';
+
+import express, { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -209,7 +210,7 @@ const transformUser = (dbUser: any): User => {
     return user as User;
 };
 
-const generateToken = (res: express.Response, userId: string) => {
+const generateToken = (res: Response, userId: string) => {
     const secret = config.JWT_SECRET;
     if (!secret) {
         console.error("FATAL: JWT_SECRET is not defined in config.ts file!");
@@ -228,7 +229,7 @@ const generateToken = (res: express.Response, userId: string) => {
     });
 };
 
-const handle2FAChallenge = async (res: express.Response, user: User) => {
+const handle2FAChallenge = async (res: Response, user: User) => {
     if (!user.telegramId || !bot) {
         return res.status(400).json({ message: '2FA is enabled but Telegram is not linked or bot is not configured.' });
     }
@@ -244,7 +245,7 @@ const handle2FAChallenge = async (res: express.Response, user: User) => {
 }
 
 // --- REST API Routes ---
-router.get('/me', protect, async (req: express.Request, res: express.Response) => {
+router.get('/me', protect, async (req: Request, res: Response) => {
     const db = getDb();
     try {
         const user = await db.get(`SELECT ${userFieldsToSelect} FROM users WHERE id = ?`, req.user!.id);
@@ -258,7 +259,7 @@ router.get('/me', protect, async (req: express.Request, res: express.Response) =
     }
 });
 
-router.post('/register', async (req: express.Request, res: express.Response) => {
+router.post('/register', async (req: Request, res: Response) => {
     const { username, password, name } = req.body;
     if (!username || !password || !name) {
         return res.status(400).json({ message: 'Please provide username, password, and name.' });
@@ -296,7 +297,7 @@ router.post('/register', async (req: express.Request, res: express.Response) => 
     }
 });
 
-router.post('/login', async (req: express.Request, res: express.Response) => {
+router.post('/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     const db = getDb();
     const user = await db.get('SELECT * FROM users WHERE username = ? AND is_anonymous = 0', username);
@@ -313,7 +314,7 @@ router.post('/login', async (req: express.Request, res: express.Response) => {
     }
 });
 
-router.post('/anonymous-login', async (req: express.Request, res: express.Response) => {
+router.post('/anonymous-login', async (req: Request, res: Response) => {
     const { username: displayName } = req.body; // Rename for clarity
     if (!displayName) {
         return res.status(400).json({ message: 'Guest username is required.' });
@@ -346,7 +347,7 @@ router.post('/anonymous-login', async (req: express.Request, res: express.Respon
     }
 });
 
-router.post('/google', async (req: express.Request, res: express.Response) => {
+router.post('/google', async (req: Request, res: Response) => {
     if (!googleClient) return res.status(503).json({ message: 'Google Sign-In is not configured on the server.' });
     
     const { credential } = req.body;
@@ -399,7 +400,7 @@ router.post('/google', async (req: express.Request, res: express.Response) => {
     }
 });
 
-router.post('/telegram-login', async (req: express.Request, res: express.Response) => {
+router.post('/telegram-login', async (req: Request, res: Response) => {
     const authData = req.body;
     const { id, first_name, last_name, username, photo_url, auth_date, hash } = authData;
 
@@ -453,7 +454,7 @@ router.post('/telegram-login', async (req: express.Request, res: express.Respons
     }
 });
 
-router.post('/telegram-webapp-login', async (req: express.Request, res: express.Response) => {
+router.post('/telegram-webapp-login', async (req: Request, res: Response) => {
     const { initData } = req.body;
 
     if (!initData) {
@@ -506,7 +507,7 @@ router.post('/telegram-webapp-login', async (req: express.Request, res: express.
     }
 });
 
-router.post('/magic-link-login', async (req: express.Request, res: express.Response) => {
+router.post('/magic-link-login', async (req: Request, res: Response) => {
     const { token } = req.body;
     if (!token) return res.status(400).json({ message: 'Token is required.' });
 
@@ -534,7 +535,7 @@ router.post('/magic-link-login', async (req: express.Request, res: express.Respo
     }
 });
 
-router.post('/logout', (_req: express.Request, res: express.Response) => {
+router.post('/logout', (_req: Request, res: Response) => {
     res.cookie('token', '', {
         httpOnly: true,
         expires: new Date(0),
@@ -544,7 +545,7 @@ router.post('/logout', (_req: express.Request, res: express.Response) => {
     res.status(200).json({ message: 'Logged out successfully' });
 });
 
-router.post('/phone-request-code', async (req: express.Request, res: express.Response) => {
+router.post('/phone-request-code', async (req: Request, res: Response) => {
     const { phoneNumber, isRegistering } = req.body;
     if (!bot) return res.status(503).json({ message: "Telegram features are disabled."});
     
@@ -581,7 +582,7 @@ router.post('/phone-request-code', async (req: express.Request, res: express.Res
     }
 });
 
-router.post('/phone-verify-code', async (req: express.Request, res: express.Response) => {
+router.post('/phone-verify-code', async (req: Request, res: Response) => {
     const { phoneNumber, code } = req.body;
     const stored = phoneCodeStore[phoneNumber];
     if (stored && stored.code === code && stored.expires > Date.now()) {
@@ -592,7 +593,7 @@ router.post('/phone-verify-code', async (req: express.Request, res: express.Resp
     }
 });
 
-router.post('/phone-register', async (req: express.Request, res: express.Response) => {
+router.post('/phone-register', async (req: Request, res: Response) => {
     const { phoneNumber, username, password } = req.body;
     const stored = phoneCodeStore[phoneNumber];
 
@@ -628,7 +629,7 @@ router.post('/phone-register', async (req: express.Request, res: express.Respons
     res.status(201).json(transformUser(userForClient));
 });
 
-router.post('/phone-login', async (req: express.Request, res: express.Response) => {
+router.post('/phone-login', async (req: Request, res: Response) => {
     const { phoneNumber, code } = req.body;
     const db = getDb();
     
@@ -655,7 +656,7 @@ router.post('/phone-login', async (req: express.Request, res: express.Response) 
 
 
 // --- 2FA Routes ---
-router.post('/2fa/enable-request', protect, async (req: express.Request, res: express.Response) => {
+router.post('/2fa/enable-request', protect, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const telegramAuthData = req.body;
     
@@ -682,7 +683,7 @@ router.post('/2fa/enable-request', protect, async (req: express.Request, res: ex
     }
 });
 
-router.post('/2fa/enable-verify', protect, async (req: express.Request, res: express.Response) => {
+router.post('/2fa/enable-verify', protect, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { code, telegramId } = req.body;
     const stored = twoFactorCodeStore[userId];
@@ -697,14 +698,14 @@ router.post('/2fa/enable-verify', protect, async (req: express.Request, res: exp
     }
 });
 
-router.post('/2fa/disable', protect, async (req: express.Request, res: express.Response) => {
+router.post('/2fa/disable', protect, async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const db = getDb();
     await db.run('UPDATE users SET is_2fa_enabled = 0 WHERE id = ?', userId);
     res.json({ message: '2FA disabled successfully.' });
 });
 
-router.post('/2fa/login-verify', async (req: express.Request, res: express.Response) => {
+router.post('/2fa/login-verify', async (req: Request, res: Response) => {
     const { userId, code } = req.body;
     const stored = twoFactorCodeStore[userId];
     

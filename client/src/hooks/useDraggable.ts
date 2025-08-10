@@ -80,6 +80,7 @@ export const useDraggable = (
     const targetIsHandle = handleRef.current && handleRef.current.contains(e.target as Node);
     
     if (targetIsHandle) {
+      e.stopPropagation(); // CRITICAL FIX: Prevent click events on elements behind the handle.
       const { x, y } = getCoords(e);
       
       dragInfo.current.isDragging = true;
@@ -108,7 +109,8 @@ export const useDraggable = (
       const touchstartListener = onDragStart as EventListener;
 
       handle.addEventListener('mousedown', mousedownListener);
-      handle.addEventListener('touchstart', touchstartListener, { passive: true });
+      // FIX: Use `passive: false` for touchstart to allow `preventDefault` in `onDragMove`.
+      handle.addEventListener('touchstart', touchstartListener, { passive: false });
 
       return () => {
         handle.removeEventListener('mousedown', mousedownListener);

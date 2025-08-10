@@ -46,6 +46,25 @@ export const CallInterface: React.FC = () => {
         }
     }, [remoteStream]);
 
+    // Handle visibility change to pause/resume video
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    // Only toggle if the camera isn't manually turned off
+                    if (!isCameraOff) {
+                         videoTrack.enabled = document.visibilityState === 'visible';
+                    }
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [localStream, isCameraOff]);
+
     // Call timer
     useEffect(() => {
         if (callStatus === 'in-call' && !callTimer) {

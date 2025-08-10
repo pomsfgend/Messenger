@@ -13,7 +13,7 @@ interface IncomingCallToastProps {
 const IncomingCallToast = ({ caller, onAccept, onReject }: IncomingCallToastProps) => {
     if (navigator.vibrate) {
         // Vibrate pattern: 200ms vibration, 100ms pause, 200ms vibration
-        navigator.vibrate([200, 100, 200]);
+        navigator.vibrate([200, 100, 200, 100, 200, 100, 200]);
     }
 
     return toast.custom(
@@ -30,10 +30,10 @@ const IncomingCallToast = ({ caller, onAccept, onReject }: IncomingCallToastProp
                         </div>
                         <div className="ml-4 flex-1">
                             <p className="text-sm font-medium text-white">
-                                Incoming Call
+                                Входящий звонок
                             </p>
                             <p className="mt-1 text-sm text-slate-400">
-                                {caller.name} is calling...
+                                {caller.name} звонит...
                             </p>
                         </div>
                     </div>

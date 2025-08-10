@@ -1,4 +1,5 @@
-import express from 'express';
+
+import express, { Request, Response } from 'express';
 import { getDb } from '../db';
 import { protect } from '../auth';
 import { config } from '../config';
@@ -9,12 +10,12 @@ const router = express.Router();
 // This endpoint allows the client to get the public key to subscribe
 // The `protect` middleware was removed because the VAPID public key is not secret information.
 // Removing the auth check makes the subscription process more resilient against race conditions on startup.
-router.get('/vapid-public-key', (req: express.Request, res: express.Response) => {
+router.get('/vapid-public-key', (req: Request, res: Response) => {
     res.json({ publicKey: config.VAPID_PUBLIC_KEY });
 });
 
 // This endpoint saves a new push subscription for the logged-in user
-router.post('/subscribe', protect, async (req: express.Request, res: express.Response) => {
+router.post('/subscribe', protect, async (req: Request, res: Response) => {
     const subscription = req.body;
     const userId = req.user!.id;
 
