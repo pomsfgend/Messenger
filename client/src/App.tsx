@@ -15,6 +15,7 @@ import { useI18n } from './hooks/useI18n';
 import { useSocket } from './hooks/useSocket';
 import ParticleBackground from './components/ParticleBackground';
 import { CallInterface } from './components/call/CallInterface';
+import { TelegramAuthModal } from './components/TelegramAuthModal';
 
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 
@@ -36,6 +37,21 @@ const urlBase64ToUint8Array = (base64String: string) => {
 
 const App: React.FC = () => {
   const { mode } = useTheme();
+
+  useEffect(() => {
+    // @ts-ignore
+    if (window.Telegram && window.Telegram.WebApp) {
+        // @ts-ignore
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.setHeaderColor('#2b2d31');
+        tg.setBackgroundColor('#1e1f22');
+        tg.onEvent('backButtonClicked', () => window.history.back());
+        if(window.history.length > 1) {
+            tg.BackButton.show();
+        }
+    }
+  }, []);
 
   useEffect(() => {
     const setAppHeight = () => {
@@ -63,6 +79,7 @@ const App: React.FC = () => {
           style: toastOptions,
         }}
       />
+      <TelegramAuthModal />
       <ReactRouterDOM.BrowserRouter>
         <AppRoutes />
       </ReactRouterDOM.BrowserRouter>

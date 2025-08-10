@@ -12,10 +12,6 @@ import AppLogo from '../components/AppLogo';
 import { clientConfig } from '../config';
 import TwoFactorAuthModal from '../components/TwoFactorAuthModal'; // Import the new modal
 
-declare global {
-    interface Window { Telegram: any; onTelegramAuth: (user: any) => void; }
-}
-
 const LoginPage: React.FC = () => {
     const [loginType, setLoginType] = useState<'default' | 'phone'>('default');
     const [username, setUsername] = useState('');

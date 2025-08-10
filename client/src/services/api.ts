@@ -1,6 +1,3 @@
-
-
-
 import type { User, Message, ChatContact, MessageType } from '../types';
 import { AvatarData } from '../types';
 
@@ -62,6 +59,7 @@ export const anonymousLogin = (username: string): Promise<User> => fetchApi('/ap
 export const register = (username: string, password: string, name: string): Promise<User> => fetchApi('/api/auth/register', { method: 'POST', body: JSON.stringify({ username, password, name }) });
 export const googleLogin = (credential: string): Promise<User> => fetchApi('/api/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
 export const telegramLogin = (authData: any): Promise<User> => fetchApi('/api/auth/telegram-login', { method: 'POST', body: JSON.stringify(authData) });
+export const telegramWebAppLogin = (initData: string): Promise<User> => fetchApi('/api/auth/telegram-webapp-login', { method: 'POST', body: JSON.stringify({ initData }) });
 export const logout = (): Promise<void> => fetchApi('/api/auth/logout', { method: 'POST' });
 export const checkSession = (): Promise<User> => fetchApi('/api/auth/me');
 export const changePassword = (currentPassword: string, newPassword: string): Promise<{message: string}> => fetchApi('/api/users/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });

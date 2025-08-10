@@ -10,10 +10,6 @@ interface Enable2FAModalProps {
     onSuccess: () => void;
 }
 
-declare global {
-    interface Window { onTelegramAuthEnable2FA: (user: any) => void; }
-}
-
 const Enable2FAModal: React.FC<Enable2FAModalProps> = ({ onClose, onSuccess }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -25,7 +21,7 @@ const Enable2FAModal: React.FC<Enable2FAModalProps> = ({ onClose, onSuccess }) =
     const handleRef = useRef<HTMLHeadingElement>(null);
     const modalId = 'enable-2fa';
     const { transform } = useDraggable(modalRef, handleRef, modalId);
-    const { size } = useResizable(modalRef, modalId);
+    const { size } = useResizable(modalRef, handleRef, modalId);
 
     const handleTelegramAuth = useCallback(async (user: any) => {
         setLoading(true);

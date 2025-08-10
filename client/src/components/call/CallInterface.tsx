@@ -7,8 +7,6 @@ import {
     CameraSwitchIcon, MinimizeIcon, MaximizeIcon,
     ConnectionIcon
 } from './CallIcons';
-import IncomingCallToast from '../IncomingCallToast';
-
 
 export const CallInterface: React.FC = () => {
     const {
@@ -40,18 +38,13 @@ export const CallInterface: React.FC = () => {
         if(localVideoRef.current && localStream) {
             localVideoRef.current.srcObject = localStream;
         }
+    }, [localStream]);
+    
+    useEffect(() => {
         if(remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream;
         }
-    }, [localStream, remoteStream]);
-
-
-    // Handle incoming call toast
-     useEffect(() => {
-        if (callStatus === 'incoming' && incomingCall) {
-            IncomingCallToast({ caller: incomingCall.caller, onAccept: acceptCall, onReject: rejectCall });
-        }
-    }, [callStatus, incomingCall]);
+    }, [remoteStream]);
 
     // Call timer
     useEffect(() => {
@@ -118,8 +111,7 @@ export const CallInterface: React.FC = () => {
         switchCamera(newMode);
     };
 
-    if (callStatus === 'idle' || callStatus === 'failed' || callStatus === 'incoming') {
-        // Incoming call is handled by a toast, so we don't render a full UI for it.
+    if (callStatus === 'idle' || callStatus === 'failed') {
         return null;
     }
 
@@ -144,69 +136,95 @@ export const CallInterface: React.FC = () => {
     }
 
     return (
-        <div className="fixed inset-0 z-[2000] bg-slate-900 flex flex-col">
-            <div className="flex-grow relative bg-black">
+        <div className="fixed inset-0 z-[2000] bg-gray-900 flex flex-col overflow-hidden">
+            {/* Main Video Area */}
+            <div className="flex-grow relative">
                 <video 
                     ref={remoteVideoRef}
                     autoPlay 
                     playsInline 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain bg-black"
                 />
                 
-                <video 
-                    ref={localVideoRef}
-                    autoPlay 
-                    playsInline 
-                    muted 
-                    className="absolute bottom-[120px] right-4 w-32 h-48 md:w-40 md:h-60 rounded-lg overflow-hidden shadow-lg border-2 border-white/20"
-                />
-                
-                {/* --- Overlays --- */}
-                <div className="absolute inset-0 flex flex-col justify-between p-4 pointer-events-none">
-                    {/* Top Bar */}
-                    <div className="flex justify-between items-start pointer-events-auto">
-                        <button onClick={toggleMinimize} className="bg-black/40 rounded-full p-2.5 backdrop-blur-md">
-                            <MinimizeIcon />
-                        </button>
-                        {peerInfo && (
-                            <div className="bg-black/40 rounded-full py-2 px-5 text-white text-center backdrop-blur-md">
-                                <p className="font-bold text-lg">{peerInfo.name}</p>
-                                <p className="text-sm">{callStatus === 'in-call' ? formatTime(callTime) : 'Calling...'}</p>
-                            </div>
-                        )}
-                         {callStatus === 'in-call' ? (
-                            <div className="flex items-center bg-black/40 rounded-full px-3 py-2 backdrop-blur-md">
-                                <ConnectionIcon />
-                                <div className="ml-2 flex items-center">
-                                    <div className="w-16 bg-gray-700 rounded-full h-1.5">
-                                        <div 
-                                            className={`h-1.5 rounded-full transition-all ${getQualityColor(connectionQuality)}`}
-                                            style={{ width: `${connectionQuality}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
-                            </div>
-                         ) : <div className="w-32"></div>}
-                    </div>
-                    
-                    {/* Bottom Bar (Controls) */}
-                     <div className="w-full pointer-events-auto">
-                        <div className="bg-black/40 py-4 flex justify-center items-center gap-4 sm:gap-6 rounded-full backdrop-blur-md max-w-xs sm:max-w-sm mx-auto">
-                             <button onClick={toggleMute} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isMuted ? 'bg-red-500' : 'bg-white/20 hover:bg-white/30'}`}>
-                                {isMuted ? <MicOffIcon /> : <MicIcon />}
-                            </button>
-                             <button onClick={handleSwitchCamera} className="w-14 h-14 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 transition-colors">
-                                <CameraSwitchIcon />
-                            </button>
-                            <button onClick={endCall} className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-transform hover:scale-110">
-                                <PhoneOffIcon />
-                            </button>
-                             <button onClick={toggleCamera} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${isCameraOff ? 'bg-red-500' : 'bg-white/20 hover:bg-white/30'}`}>
-                                {isCameraOff ? <VideoOffIcon /> : <VideoIcon />}
-                            </button>
-                        </div>
-                     </div>
+                {/* Self-view Picture-in-Picture */}
+                <div className="absolute bottom-[120px] sm:bottom-4 right-4 w-32 h-48 md:w-40 md:h-60 rounded-lg overflow-hidden shadow-lg border-2 border-white/20">
+                    <video 
+                        ref={localVideoRef}
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="w-full h-full object-cover"
+                    />
                 </div>
+                
+                {/* Call Info Overlay */}
+                <div className="absolute top-4 left-4 right-4 flex justify-center pointer-events-none">
+                    {peerInfo && (
+                        <div className="bg-black/50 rounded-full py-2 px-5 text-white text-center backdrop-blur-sm">
+                            <div className="text-xl font-bold">
+                                {peerInfo.name || peerInfo.username || 'Unknown'}
+                            </div>
+                            <div className="text-sm text-gray-300">
+                                {callStatus === 'in-call' ? formatTime(callTime) : (callStatus === 'incoming' ? 'Incoming Call' : 'Calling...')}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Connection Quality Indicator */}
+                {callStatus === 'in-call' && (
+                    <div className="absolute top-4 right-4 flex items-center bg-black/50 rounded-full px-3 py-1.5 backdrop-blur-sm">
+                        <ConnectionIcon />
+                        <div className="ml-2 flex items-center">
+                            <div className="w-16 bg-gray-700 rounded-full h-1.5">
+                                <div 
+                                    className={`h-1.5 rounded-full ${getQualityColor(connectionQuality)}`}
+                                    style={{ width: `${connectionQuality}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Minimize Button */}
+                <button 
+                    onClick={toggleMinimize}
+                    className="absolute top-4 left-4 bg-black/50 rounded-full p-2.5 backdrop-blur-sm pointer-events-auto"
+                >
+                    <MinimizeIcon />
+                </button>
+            </div>
+
+            {/* Controls Panel */}
+            <div className="bg-black/50 py-4 flex justify-center space-x-4 sm:space-x-8 flex-shrink-0">
+                {callStatus === 'incoming' ? (
+                    <>
+                        <button onClick={rejectCall} className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center transition-transform hover:scale-110">
+                            <PhoneMissedIcon />
+                        </button>
+                        <button onClick={acceptCall} className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center transition-transform hover:scale-110">
+                            <PhoneIcon />
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button onClick={toggleMute} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${ isMuted ? 'bg-red-500' : 'bg-gray-700 hover:bg-gray-600' }`}>
+                            {isMuted ? <MicOffIcon /> : <MicIcon />}
+                        </button>
+                        
+                        <button onClick={toggleCamera} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${ isCameraOff ? 'bg-red-500' : 'bg-gray-700 hover:bg-gray-600' }`}>
+                            {isCameraOff ? <VideoOffIcon /> : <VideoIcon />}
+                        </button>
+                        
+                        <button onClick={handleSwitchCamera} className="w-14 h-14 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center">
+                            <CameraSwitchIcon />
+                        </button>
+                        
+                        <button onClick={endCall} className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center transition-transform hover:scale-110">
+                            <PhoneOffIcon />
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );

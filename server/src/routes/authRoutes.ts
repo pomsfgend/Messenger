@@ -13,6 +13,7 @@ import '../types'; // Import for declaration merging
 import { getIo } from '../websocketStore';
 import { CHAT_CONTACT_USER_FIELDS } from '../sharedConstants';
 import { push } from '../push'; // Import push for notifications
+import { verifyTelegramWebAppData } from '../utils/telegramAuth';
 
 const router = express.Router();
 let googleClient: OAuth2Client | null = null;
@@ -163,7 +164,7 @@ export const initializeAuthServices = (socketIo: SocketIOServer) => {
 }
 
 
-const userFieldsToSelect = 'id, username, name, uniqueId, gender, dob, createdAt, telegram_id, phone_number, is_anonymous, avatar_url, profile_setup, role, is_banned, ban_reason, ban_expires_at, google_id, mute_expires_at, mute_reason, last_seen, profile_color, message_color, description, profile_emoji, profile_emoji_density, profile_emoji_rotation, privacy_show_phone, privacy_show_telegram, privacy_show_dob, privacy_show_description, privacy_show_last_seen, privacy_show_typing, is_2fa_enabled';
+const userFieldsToSelect = 'id, username, name, uniqueId, gender, dob, createdAt, telegram_id as telegramId, phone_number as phoneNumber, is_anonymous as isAnonymous, avatar_url as avatarUrl, profile_setup as profileSetup, role, is_banned as isBanned, ban_reason as banReason, ban_expires_at as banExpiresAt, google_id as googleId, mute_expires_at as muteExpiresAt, mute_reason as muteReason, last_seen as lastSeen, profile_color, message_color, description, profile_emoji, profile_emoji_density, profile_emoji_rotation, privacy_show_phone, privacy_show_telegram, privacy_show_dob, privacy_show_description, privacy_show_last_seen, privacy_show_typing, is_2fa_enabled';
 
 const transformUser = (dbUser: any): User => {
     if (!dbUser) return dbUser;
@@ -424,6 +425,54 @@ router.post('/telegram-login', async (req: Request, res: Response) => {
         const userForClient = await db.get(`SELECT ${userFieldsToSelect} FROM users WHERE id = ?`, user.id);
         res.json(transformUser(userForClient));
     } catch (error) {
+        res.status(500).json({ message: 'Server error during Telegram login.' });
+    }
+});
+
+router.post('/telegram-webapp-login', async (req: Request, res: Response) => {
+    const { initData } = req.body;
+
+    if (!initData) {
+        return res.status(400).json({ message: 'Invalid Telegram data provided.' });
+    }
+
+    const telegramData = verifyTelegramWebAppData(initData);
+    if (!telegramData) {
+        return res.status(401).json({ message: 'Telegram data is not authentic.' });
+    }
+
+    const { id, first_name, last_name, username, photo_url } = telegramData;
+    
+    const db = getDb();
+    try {
+        let user = await db.get('SELECT * FROM users WHERE telegram_id = ?', id.toString());
+        if (!user) {
+            const newUsername = `tg_${username || id}`;
+            const existingUserByUsername = await db.get("SELECT id FROM users WHERE username = ? AND is_anonymous = 0", newUsername);
+            
+            const newUser = {
+                id: `user_${crypto.randomBytes(8).toString('hex')}`,
+                username: existingUserByUsername ? `${newUsername}_${crypto.randomBytes(2).toString('hex')}` : newUsername,
+                name: `${first_name || ''}${last_name ? ' ' + last_name : ''}`.trim() || username || 'Telegram User',
+                uniqueId: existingUserByUsername ? `${newUsername}_${crypto.randomBytes(2).toString('hex')}` : newUsername,
+                createdAt: new Date().toISOString(),
+                telegram_id: id.toString(),
+                avatar_url: photo_url,
+            };
+
+            await db.run(
+                'INSERT INTO users (id, username, name, uniqueId, createdAt, telegram_id, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.createdAt, newUser.telegram_id, newUser.avatar_url]
+            );
+            user = await db.get('SELECT * FROM users WHERE id = ?', newUser.id);
+        }
+        
+        generateToken(res, user.id);
+        const userForClient = await db.get(`SELECT ${userFieldsToSelect} FROM users WHERE id = ?`, user.id);
+        res.json(transformUser(userForClient));
+
+    } catch (error) {
+        console.error('Telegram Web App login error:', error);
         res.status(500).json({ message: 'Server error during Telegram login.' });
     }
 });
