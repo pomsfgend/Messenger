@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback, RefObject, useRef } from 'react';
 
+const getCoords = (e: MouseEvent | TouchEvent) => {
+    if ('touches' in e) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+};
+
+
 export const useResizable = (modalRef: RefObject<HTMLElement>, modalId?: string) => {
     const getInitialSize = useCallback(() => {
         if (modalId) {
@@ -16,23 +24,26 @@ export const useResizable = (modalRef: RefObject<HTMLElement>, modalId?: string)
     const [size, setSize] = useState(getInitialSize());
     const isResizing = useRef(false);
 
-    const onMouseMove = useCallback((e: MouseEvent) => {
+    const onResizeMove = useCallback((e: MouseEvent | TouchEvent) => {
         if (!isResizing.current || !modalRef.current) return;
         
+        const { x, y } = getCoords(e);
         const rect = modalRef.current.getBoundingClientRect();
         
         setSize({
-            width: e.clientX - rect.left,
-            height: e.clientY - rect.top,
+            width: x - rect.left,
+            height: y - rect.top,
         });
     }, [modalRef]);
 
-    const onMouseUp = useCallback(() => {
+    const onResizeEnd = useCallback(() => {
         if (!isResizing.current) return;
         
         isResizing.current = false;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('mousemove', onResizeMove);
+        document.removeEventListener('mouseup', onResizeEnd);
+        document.removeEventListener('touchmove', onResizeMove);
+        document.removeEventListener('touchend', onResizeEnd);
         document.body.style.userSelect = '';
         
         if (modalId) {
@@ -45,43 +56,52 @@ export const useResizable = (modalRef: RefObject<HTMLElement>, modalId?: string)
                 return currentSize;
             });
         }
-    }, [onMouseMove, modalId]);
+    }, [onResizeMove, modalId]);
 
-    const onMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const onResizeStart = useCallback((e: MouseEvent | TouchEvent) => {
         e.stopPropagation();
+        if ('preventDefault' in e) e.preventDefault();
+        
         isResizing.current = true;
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('mousemove', onResizeMove);
+        document.addEventListener('mouseup', onResizeEnd);
+        document.addEventListener('touchmove', onResizeMove, { passive: false });
+        document.addEventListener('touchend', onResizeEnd);
         document.body.style.userSelect = 'none';
-    }, [onMouseMove, onMouseUp]);
+    }, [onResizeMove, onResizeEnd]);
     
     useEffect(() => {
         const modal = modalRef.current;
         if (!modal) return;
 
         const resizer = document.createElement('div');
-        resizer.style.width = '16px';
-        resizer.style.height = '16px';
+        resizer.style.width = '20px';
+        resizer.style.height = '20px';
         resizer.style.position = 'absolute';
         resizer.style.right = '0';
         resizer.style.bottom = '0';
         resizer.style.cursor = 'se-resize';
         resizer.style.zIndex = '100';
+        resizer.style.touchAction = 'none';
 
-        const mouseDownListener = onMouseDown as unknown as EventListener;
-        resizer.addEventListener('mousedown', mouseDownListener);
+        const mousedownListener = onResizeStart as unknown as EventListener;
+        resizer.addEventListener('mousedown', mousedownListener);
+        resizer.addEventListener('touchstart', mousedownListener, { passive: false });
         
         modal.appendChild(resizer);
         
         return () => {
-            resizer.removeEventListener('mousedown', mouseDownListener);
+            resizer.removeEventListener('mousedown', mousedownListener);
+            resizer.removeEventListener('touchstart', mousedownListener);
             if (modal.contains(resizer)) {
                  modal.removeChild(resizer);
             }
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
+            document.removeEventListener('mousemove', onResizeMove);
+            document.removeEventListener('mouseup', onResizeEnd);
+            document.removeEventListener('touchmove', onResizeMove);
+            document.removeEventListener('touchend', onResizeEnd);
         };
-    }, [modalRef, onMouseDown, onMouseMove, onMouseUp]);
+    }, [modalRef, onResizeStart, onResizeMove, onResizeEnd]);
 
     return { size };
 };

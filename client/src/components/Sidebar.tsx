@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import * as api from '../services/api';
 import type { ChatContact, User, Message } from '../types';
@@ -49,7 +49,7 @@ const Sidebar: React.FC<{
 }> = ({ activeChatId, onSidebarClose }) => {
     const { currentUser, logout, updateCurrentUser } = useAuth();
     const { t } = useI18n();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const { socket } = useSocket();
     const [contacts, setContacts] = useState<ChatContact[]>([]);
     const [searchTerm, setSearchTerm] = useState('');

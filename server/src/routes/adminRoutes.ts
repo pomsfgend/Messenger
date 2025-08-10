@@ -21,7 +21,7 @@ const superAdminUniqueIds = process.env.ADMIN_IDS?.split(',').map(id => id.trim(
 router.get('/users', isModeratorOrAdmin, async (req: Request, res: Response) => {
     const db = getDb();
     try {
-        const users = await db.all('SELECT id, username, name, uniqueId, role, is_banned, ban_reason, ban_expires_at, createdAt, mute_expires_at, mute_reason, avatar_url as avatarUrl FROM users ORDER BY createdAt DESC');
+        const users = await db.all('SELECT id, username, name, uniqueId, role, is_banned, ban_reason, ban_expires_at, createdAt, mute_expires_at, mute_reason, avatar_url as avatarUrl, last_seen as lastSeen FROM users ORDER BY createdAt DESC');
         res.json(users);
     } catch (error) {
         res.status(500).json({ message: 'Failed to fetch users.' });

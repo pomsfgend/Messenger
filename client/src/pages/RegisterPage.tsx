@@ -1,8 +1,9 @@
 
 
 
+
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../hooks/useI18n';
 import toast from 'react-hot-toast';
@@ -31,7 +32,7 @@ const RegisterPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const { register, phoneLogin } = useAuth();
     const { t } = useI18n();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
 
     const handleDefaultSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -176,9 +177,9 @@ const RegisterPage: React.FC = () => {
     return (
         <div className="min-h-screen w-full overflow-y-auto flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 p-4 font-sans relative" style={{backgroundColor: 'rgb(var(--color-bg-primary))'}}>
             <header className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center w-full">
-                <Link to="/" className="z-20">
+                <ReactRouterDOM.Link to="/" className="z-20">
                     <AppLogo imgClassName="h-16 w-16"/>
-                </Link>
+                </ReactRouterDOM.Link>
                 <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl sm:text-3xl font-bold tracking-wider auth-neon-title">
                     Мессенджер Бульк
                 </h1>
@@ -203,9 +204,9 @@ const RegisterPage: React.FC = () => {
                 
                 <p className="text-center text-sm text-slate-500 dark:text-slate-400 pt-2">
                   {t('register.hasAccount')}{' '}
-                  <Link to="/login" className="font-medium text-[rgb(var(--color-accent-primary))] hover:text-[rgb(var(--color-accent-secondary))] transition-colors">
+                  <ReactRouterDOM.Link to="/login" className="font-medium text-[rgb(var(--color-accent-primary))] hover:text-[rgb(var(--color-accent-secondary))] transition-colors">
                     {t('register.signIn')}
-                  </Link>
+                  </ReactRouterDOM.Link>
                 </p>
             </div>
           </div>

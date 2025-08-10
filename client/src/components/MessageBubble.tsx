@@ -99,8 +99,20 @@ const MediaMessage: React.FC<{ message: Message; onMediaClick: () => void; isVis
     );
 }
 
+const escapeHtml = (text: string) => {
+    const map: { [key: string]: string } = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
+};
+
 const parseMarkdown = (text: string) => {
-    return text
+    const escapedText = escapeHtml(text);
+    return escapedText
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/_(.*?)_/g, '<em>$1</em>')
         .replace(/~(.*?)~/g, '<s>$1</s>');
@@ -254,7 +266,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
     
     let bubbleStyle: React.CSSProperties = {};
-    let bubbleClasses = 'flex flex-col';
+    let bubbleClasses = 'flex flex-col max-w-full overflow-hidden';
     let textColorClass = 'text-slate-800 dark:text-slate-200';
 
     if (isOwn) {
@@ -278,7 +290,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     
     if ((message.mediaUrl || typeof uploadProgress === 'number') && !message.content) {
          bubbleClasses += ' rounded-2xl';
-         bubbleClasses += ' overflow-hidden';
     } else {
         bubbleClasses += isOwn ? ' rounded-l-2xl rounded-t-2xl rounded-br-lg' : ' rounded-r-2xl rounded-t-2xl rounded-bl-lg';
     }

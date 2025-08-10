@@ -10,7 +10,7 @@ import Avatar from './Avatar';
 import ViewProfileModal from './ViewProfileModal';
 import MediaUploadPreviewModal from './MediaUploadPreviewModal';
 import MessageContextMenu, { Action } from './MessageContextMenu';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import MediaViewerModal from './MediaViewerModal';
 import useAutosizeTextArea from '../hooks/useAutosizeTextArea';
 import GlobalChatInfoModal from './GlobalChatInfoModal';
@@ -151,7 +151,7 @@ const ChatWindow: React.FC<{
     const { socket } = useSocket();
     const { t } = useI18n();
     const { mode } = useTheme();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatUsers, setChatUsers] = useState<Record<string, User>>({});
@@ -849,7 +849,7 @@ const ChatWindow: React.FC<{
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full relative">
+        <div className="flex-1 flex flex-col h-full relative overflow-hidden">
             {viewingProfile && <ViewProfileModal user={viewingProfile} onClose={() => setViewingProfile(null)} onStartChat={(userId) => { setViewingProfile(null); navigate(`/app/chat/${[currentUser!.id, userId].sort().join('-')}`)}} />}
             {isChatInfoModalOpen && <GlobalChatInfoModal onClose={() => setIsChatInfoModalOpen(false)} />}
             {mediaPreview && <MediaUploadPreviewModal item={mediaPreview} onClose={() => setMediaPreview(null)} onSend={handleFileUpload} />}
@@ -873,7 +873,7 @@ const ChatWindow: React.FC<{
                 )}
             </AnimatePresence>
 
-            <main ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
+            <main ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
                 {isLoading ? (
                      [...Array(10)].map((_, i) => (
                         <div key={i} className={`flex items-end gap-3 ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>

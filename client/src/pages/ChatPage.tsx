@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 import ChatPlaceholder from '../components/ChatPlaceholder';
 
 const ChatPage: React.FC = () => {
-  const { chatId } = useParams<{ chatId: string }>();
+  const { chatId } = ReactRouterDOM.useParams<{ chatId: string }>();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const location = useLocation();
+  const location = ReactRouterDOM.useLocation();
 
   useEffect(() => {
     // When the user navigates, close the sidebar on mobile.

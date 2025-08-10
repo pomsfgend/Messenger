@@ -45,7 +45,7 @@ const initializeBotListeners = () => {
             await db.run('INSERT INTO magic_links (token, userId, expiresAt) VALUES (?, ?, ?)', [token, user.id, expiresAt]);
             
             // This URL needs to match the frontend route
-            const loginUrl = `${config.USE_HTTPS ? 'https' : 'http'}://localhost:5174/auth/magic/${token}`;
+            const loginUrl = `https://bulkhead.hopto.org/auth/magic/${token}`;
             
             await bot.sendMessage(telegramId, `Welcome back, ${user.name}!\nClick the link to log in to the web messenger:\n${loginUrl}`);
         } else {

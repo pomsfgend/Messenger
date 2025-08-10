@@ -185,10 +185,11 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
             localVideoRef.current.srcObject = localStreamRef.current;
         }
         
+        // CRITICAL FIX: Setup E2EE before creating the offer.
+        await setupE2EE(pc, true);
+
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        
-        await setupE2EE(pc, true);
 
         socket.emit('call:start', {
             to: partner.id,
@@ -236,17 +237,18 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
             return;
         }
 
+        await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
+        
         localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
         if (localVideoRef.current) {
             localVideoRef.current.srcObject = localStreamRef.current;
         }
 
-        await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
+        // CRITICAL FIX: Setup E2EE after setting remote description but before creating the answer.
+        await setupE2EE(pc, false);
         
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-
-        await setupE2EE(pc, false);
         
         socket.emit('webrtc:answer', {
             to: incomingCall.caller.id,
@@ -283,7 +285,7 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         };
         
         const handleAnswer = async (data: { answer: RTCSessionDescriptionInit }) => {
-            if (peerConnectionRef.current) {
+            if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'stable') {
                 await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
             }
         };

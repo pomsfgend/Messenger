@@ -1,5 +1,5 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -61,9 +61,9 @@ const App: React.FC = () => {
           style: toastOptions,
         }}
       />
-      <BrowserRouter>
+      <ReactRouterDOM.BrowserRouter>
         <AppRoutes />
-      </BrowserRouter>
+      </ReactRouterDOM.BrowserRouter>
     </>
   );
 };
@@ -79,9 +79,9 @@ const LoadingSpinner = () => (
 const PublicRoutes = () => {
     const { currentUser } = useAuth();
     if (currentUser) {
-        return <Navigate to="/app" replace />;
+        return <ReactRouterDOM.Navigate to="/app" replace />;
     }
-    return <Outlet />;
+    return <ReactRouterDOM.Outlet />;
 };
 
 
@@ -89,14 +89,14 @@ const PublicRoutes = () => {
 // It also handles the loading state.
 const ProtectedRoute = () => {
     const { currentUser } = useAuth();
-    const location = useLocation();
+    const location = ReactRouterDOM.useLocation();
 
     if (currentUser === undefined) {
         return <LoadingSpinner />;
     }
 
     if (!currentUser) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
+        return <ReactRouterDOM.Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (currentUser.isEffectivelyBanned) {
@@ -104,15 +104,15 @@ const ProtectedRoute = () => {
     }
     
     // Pass through to the protected component (MessengerLayout)
-    return <Outlet />;
+    return <ReactRouterDOM.Outlet />;
 };
 
 const AdminRoute = () => {
     const { currentUser } = useAuth();
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'moderator') {
-        return <Navigate to="/app" replace />;
+        return <ReactRouterDOM.Navigate to="/app" replace />;
     }
-    return <Outlet />;
+    return <ReactRouterDOM.Outlet />;
 };
 
 // This new component wraps the entire messenger part of the application
@@ -120,7 +120,7 @@ const MessengerLayout: React.FC = () => {
   const { currentUser } = useAuth();
   const { socket } = useSocket();
   const { t } = useI18n();
-  const location = useLocation();
+  const location = ReactRouterDOM.useLocation();
   const isAdminPage = location.pathname.startsWith('/app/admin');
   
   useEffect(() => {
@@ -189,18 +189,18 @@ const MessengerLayout: React.FC = () => {
       <ParticleBackground />
       <div className="relative z-10 w-full h-full">
         {/* The router for the main application, paths are relative to /app */}
-        <Routes>
-            <Route path="chat/:chatId" element={<ChatPage />} />
-            <Route index element={<ChatPage />} /> {/* Renders ChatPage with undefined chatId */}
-            <Route element={<AdminRoute />}>
-                <Route path="admin" element={
+        <ReactRouterDOM.Routes>
+            <ReactRouterDOM.Route path="chat/:chatId" element={<ChatPage />} />
+            <ReactRouterDOM.Route index element={<ChatPage />} /> {/* Renders ChatPage with undefined chatId */}
+            <ReactRouterDOM.Route element={<AdminRoute />}>
+                <ReactRouterDOM.Route path="admin" element={
                     <Suspense fallback={<LoadingSpinner />}>
                         <AdminPage />
                     </Suspense>
                 } />
-            </Route>
-            <Route path="*" element={<Navigate to="/app" replace />} />
-        </Routes>
+            </ReactRouterDOM.Route>
+            <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/app" replace />} />
+        </ReactRouterDOM.Routes>
       </div>
     </div>
   );
@@ -211,31 +211,31 @@ const AppRoutes: React.FC = () => {
   const { currentUser } = useAuth();
 
   return (
-      <Routes>
+      <ReactRouterDOM.Routes>
         {/* Public Routes */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/auth/magic/:token" element={<MagicLoginPage />} /> 
+        <ReactRouterDOM.Route path="/" element={<LandingPage />} />
+        <ReactRouterDOM.Route path="/auth/magic/:token" element={<MagicLoginPage />} /> 
         
         {/* Routes for unauthenticated users */}
-        <Route element={<PublicRoutes />}>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-        </Route>
+        <ReactRouterDOM.Route element={<PublicRoutes />}>
+          <ReactRouterDOM.Route path="/login" element={<LoginPage />} />
+          <ReactRouterDOM.Route path="/register" element={<RegisterPage />} />
+        </ReactRouterDOM.Route>
         
         {/* Standalone Chat Route */}
-        <Route path="/app/chat-standalone/:chatId" element={<ProtectedRoute />}>
-            <Route index element={<StandaloneChatPage />} />
-        </Route>
+        <ReactRouterDOM.Route path="/app/chat-standalone/:chatId" element={<ProtectedRoute />}>
+            <ReactRouterDOM.Route index element={<StandaloneChatPage />} />
+        </ReactRouterDOM.Route>
 
         {/* Protected Application Routes */}
-        <Route path="/app/*" element={<ProtectedRoute />}>
+        <ReactRouterDOM.Route path="/app/*" element={<ProtectedRoute />}>
           {/* If authenticated and not banned, render the main messenger layout */}
-          <Route path="*" element={currentUser && !currentUser.isEffectivelyBanned ? <MessengerLayout /> : <LoadingSpinner />} />
-        </Route>
+          <ReactRouterDOM.Route path="*" element={currentUser && !currentUser.isEffectivelyBanned ? <MessengerLayout /> : <LoadingSpinner />} />
+        </ReactRouterDOM.Route>
         
         {/* Fallback redirect */}
-        <Route path="*" element={<Navigate to={currentUser ? "/app" : "/"} replace />} />
-      </Routes>
+        <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to={currentUser ? "/app" : "/"} replace />} />
+      </ReactRouterDOM.Routes>
   );
 };
 

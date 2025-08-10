@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect, useCallback, RefObject } from 'react';
 
+const getCoords = (e: MouseEvent | TouchEvent) => {
+    if ('touches' in e) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+};
+
 export const useDraggable = (
   modalRef: RefObject<HTMLElement>,
   handleRef: RefObject<HTMLElement>,
@@ -26,22 +33,27 @@ export const useDraggable = (
     initialY: 0,
   });
 
-  const onMouseMove = useCallback((e: MouseEvent) => {
+  const onDragMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!dragInfo.current.isDragging) return;
-    const dx = e.clientX - dragInfo.current.startX;
-    const dy = e.clientY - dragInfo.current.startY;
+    
+    const { x, y } = getCoords(e);
+    const dx = x - dragInfo.current.startX;
+    const dy = y - dragInfo.current.startY;
     setTransform({
       x: dragInfo.current.initialX + dx,
       y: dragInfo.current.initialY + dy,
     });
   }, []);
 
-  const onMouseUp = useCallback(() => {
+  const onDragEnd = useCallback(() => {
     if (!dragInfo.current.isDragging) return;
     
     dragInfo.current.isDragging = false;
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
+    document.removeEventListener('touchmove', onDragMove);
+    document.removeEventListener('touchend', onDragEnd);
+    
     if (document.body.style.userSelect === 'none') {
         document.body.style.userSelect = '';
     }
@@ -57,16 +69,19 @@ export const useDraggable = (
       });
     }
 
-  }, [onMouseMove, modalId]);
+  }, [onDragMove, modalId]);
 
-  const onMouseDown = useCallback((e: MouseEvent) => {
+  const onDragStart = useCallback((e: MouseEvent | TouchEvent) => {
     const targetIsHandle = handleRef.current && handleRef.current.contains(e.target as Node);
     
     if (targetIsHandle) {
-      e.preventDefault();
+      if ('preventDefault' in e) e.preventDefault();
+      
+      const { x, y } = getCoords(e);
+      
       dragInfo.current.isDragging = true;
-      dragInfo.current.startX = e.clientX;
-      dragInfo.current.startY = e.clientY;
+      dragInfo.current.startX = x;
+      dragInfo.current.startY = y;
       
       setTransform(currentTransform => {
         dragInfo.current.initialX = currentTransform.x;
@@ -74,24 +89,31 @@ export const useDraggable = (
         return currentTransform;
       });
 
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
+      document.addEventListener('mousemove', onDragMove);
+      document.addEventListener('mouseup', onDragEnd);
+      document.addEventListener('touchmove', onDragMove, { passive: false });
+      document.addEventListener('touchend', onDragEnd);
+      
       document.body.style.userSelect = 'none';
     }
-  }, [handleRef, onMouseMove, onMouseUp]);
+  }, [handleRef, onDragMove, onDragEnd]);
 
   useEffect(() => {
     const handle = handleRef.current;
     if (handle) {
-      const mousedownListener = onMouseDown as EventListener;
+      const mousedownListener = onDragStart as EventListener;
       handle.addEventListener('mousedown', mousedownListener);
+      handle.addEventListener('touchstart', mousedownListener, { passive: true });
       return () => {
         handle.removeEventListener('mousedown', mousedownListener);
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+        handle.removeEventListener('touchstart', mousedownListener);
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('mouseup', onDragEnd);
+        document.removeEventListener('touchmove', onDragMove);
+        document.removeEventListener('touchend', onDragEnd);
       };
     }
-  }, [handleRef, onMouseDown, onMouseMove, onMouseUp]);
+  }, [handleRef, onDragStart, onDragMove, onDragEnd]);
 
   return { transform };
 };
