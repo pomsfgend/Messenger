@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useRef, RefObject } from 'react';
-import { useSocket } from './useSocket';
+import { useState, useRef, useEffect, useCallback, RefObject } from "react";
+import { useSocket } from "./useSocket";
 import * as api from '../services/api';
-import { User } from '../types';
-import { useAuth } from './useAuth';
+import { User } from "../types";
 
 interface UseCallProps {
     localVideoRef: RefObject<HTMLVideoElement>;
@@ -10,313 +9,201 @@ interface UseCallProps {
     chatId: string | null;
 }
 
-interface IncomingCall {
-    caller: User;
-    offer: RTCSessionDescriptionInit;
-}
-
-const E2EE_KEY_CONTEXT = 'bulkhead-e2ee-key';
-const IV_LENGTH = 12;
-
-const supportsInsertableStreams = () => {
-  return (
-    typeof RTCRtpSender !== 'undefined' &&
-    'createEncodedStreams' in RTCRtpSender.prototype
-  );
-};
-
-const getMasterKey = async (chatId: string): Promise<Uint8Array> => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(chatId);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return new Uint8Array(hash);
-};
-
-const deriveKey = async (masterKey: Uint8Array, info: string): Promise<CryptoKey> => {
-    const key = await crypto.subtle.importKey('raw', masterKey, 'HKDF', false, ['deriveKey']);
-    return crypto.subtle.deriveKey(
-        {
-            name: 'HKDF',
-            hash: 'SHA-256',
-            salt: new TextEncoder().encode('bulkhead-salt'), 
-            info: new TextEncoder().encode(info),
-        },
-        key,
-        { name: 'AES-GCM', length: 256 },
-        true,
-        ['encrypt', 'decrypt']
-    );
-};
-
 export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps) => {
     const { socket } = useSocket();
-    const { currentUser } = useAuth();
-    const [inCall, setInCall] = useState(false);
+    const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [isMuted, setIsMuted] = useState(false);
     const [isCameraOff, setIsCameraOff] = useState(false);
-    const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+    const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'in-call' | 'failed' | 'incoming'>("idle");
+    const [peer, setPeer] = useState<User | null>(null);
+    const [incomingCall, setIncomingCall] = useState<{ caller: User, offer: RTCSessionDescriptionInit } | null>(null);
+    const pcRef = useRef<RTCPeerConnection | null>(null);
 
-    const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-    const localStreamRef = useRef<MediaStream | null>(null);
-    const remoteStreamRef = useRef<MediaStream | null>(null);
-    const callPartnerRef = useRef<User | null>(null);
-    const encryptionKeys = useRef<{ sendKey: CryptoKey, receiveKey: CryptoKey } | null>(null);
-
-    const createPeerConnection = useCallback(async () => {
-        try {
-            const iceServers = await api.getTurnCredentials();
-            const pc = new RTCPeerConnection({ iceServers });
-            
-            pc.onicecandidate = (event) => {
-                if (event.candidate && socket && callPartnerRef.current) {
-                    socket.emit('webrtc:ice-candidate', {
-                        to: callPartnerRef.current.id,
-                        candidate: event.candidate,
-                    });
-                }
-            };
-            
-            pc.ontrack = (event) => {
-                remoteStreamRef.current = event.streams[0];
-                if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = remoteStreamRef.current;
-                }
-            };
-
-            peerConnectionRef.current = pc;
-            return pc;
-        } catch (error) {
-            console.error("Failed to create peer connection:", error);
-            return null;
+    const endCallCleanup = useCallback(() => {
+        if (pcRef.current) {
+            pcRef.current.close();
+            pcRef.current = null;
         }
-    }, [socket, remoteVideoRef]);
-
-    const setupE2EE = useCallback(async (pc: RTCPeerConnection, isInitiator: boolean) => {
-        if (!supportsInsertableStreams()) {
-            console.warn("Using frame encryption fallback: End-to-end encryption is not supported by this browser. Call will not be encrypted.");
-            return;
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            setLocalStream(null);
         }
-        if (!chatId) throw new Error("ChatID is required for E2EE key derivation.");
-        
-        const masterKey = await getMasterKey(chatId);
-        
-        const sendKeyInfo = isInitiator ? `${E2EE_KEY_CONTEXT}-sender` : `${E2EE_KEY_CONTEXT}-receiver`;
-        const receiveKeyInfo = isInitiator ? `${E2EE_KEY_CONTEXT}-receiver` : `${E2EE_KEY_CONTEXT}-sender`;
-
-        const [sendKey, receiveKey] = await Promise.all([
-            deriveKey(masterKey, sendKeyInfo),
-            deriveKey(masterKey, receiveKeyInfo),
-        ]);
-        encryptionKeys.current = { sendKey, receiveKey };
-        
-        const transceivers = pc.getTransceivers();
-        for (const transceiver of transceivers) {
-            if (transceiver.sender.track) {
-                const senderStreams = (transceiver.sender as any).createEncodedStreams();
-                senderStreams.readable
-                    .pipeThrough(new TransformStream({
-                        transform: async (encodedFrame, controller) => {
-                            const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-                            const encryptedData = await crypto.subtle.encrypt(
-                                { name: 'AES-GCM', iv },
-                                encryptionKeys.current!.sendKey,
-                                encodedFrame.data
-                            );
-                            const newPacket = new Uint8Array(iv.length + encryptedData.byteLength);
-                            newPacket.set(iv, 0);
-                            newPacket.set(new Uint8Array(encryptedData), iv.length);
-                            encodedFrame.data = newPacket.buffer;
-                            controller.enqueue(encodedFrame);
-                        }
-                    }))
-                    .pipeTo(senderStreams.writable);
-            }
-             if (transceiver.receiver.track) {
-                 const receiverStreams = (transceiver.receiver as any).createEncodedStreams();
-                 receiverStreams.readable
-                    .pipeThrough(new TransformStream({
-                        transform: async (encodedFrame, controller) => {
-                            try {
-                                const packet = new Uint8Array(encodedFrame.data);
-                                if (packet.length < IV_LENGTH) return; // Not an encrypted packet, drop it
-                                const iv = packet.slice(0, IV_LENGTH);
-                                const ciphertext = packet.slice(IV_LENGTH);
-                                const decryptedData = await crypto.subtle.decrypt(
-                                    { name: 'AES-GCM', iv },
-                                    encryptionKeys.current!.receiveKey,
-                                    ciphertext
-                                );
-                                encodedFrame.data = decryptedData;
-                                controller.enqueue(encodedFrame);
-                            } catch (e) {
-                                // Decryption can fail for various reasons (key mismatch, corrupted packet).
-                                // We drop the frame by not enqueueing it.
-                                console.error("Decryption failed for a frame:", e);
-                            }
-                        }
-                    }))
-                    .pipeTo(receiverStreams.writable);
-            }
-        }
-    }, [chatId]);
-
-    const startCall = useCallback(async (partner: User) => {
-        if (!socket || !currentUser) return;
-
-        callPartnerRef.current = partner;
-        const pc = await createPeerConnection();
-        if (!pc) return;
-        
-        try {
-            // 1. Get local media and add tracks
-            localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = localStreamRef.current;
-            }
-            
-            // 2. Set up E2EE now that tracks are added
-            await setupE2EE(pc, true);
-
-            // 3. Create and set local description
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            // 4. Send the offer
-            socket.emit('call:start', { to: partner.id, from: currentUser, offer });
-            setInCall(true);
-        } catch (err) {
-            console.error("Failed to start call", err);
-            // Cleanup on failure
-            pc.close();
-        }
-    }, [socket, currentUser, createPeerConnection, localVideoRef, setupE2EE]);
-    
-    const endCall = useCallback(() => {
-        if (socket && callPartnerRef.current) {
-            socket.emit('call:end', { to: callPartnerRef.current.id });
-        }
-        
-        peerConnectionRef.current?.close();
-        peerConnectionRef.current = null;
-        localStreamRef.current?.getTracks().forEach(track => track.stop());
-        localStreamRef.current = null;
-        
-        setInCall(false);
-        callPartnerRef.current = null;
+        if (localVideoRef.current) localVideoRef.current.srcObject = null;
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+        setRemoteStream(null);
+        setCallStatus("idle");
+        setPeer(null);
         setIncomingCall(null);
-    }, [socket]);
+        setIsMuted(false);
+        setIsCameraOff(false);
+    }, [localStream, localVideoRef, remoteVideoRef]);
 
-    const rejectCall = useCallback(() => {
-        if (socket && incomingCall) {
-            socket.emit('call:reject', { to: incomingCall.caller.id });
-        }
-        setIncomingCall(null);
-    }, [socket, incomingCall]);
+    const setupPeerConnection = useCallback(async (peerId: string) => {
+        const iceServers = await api.getTurnCredentials();
+        const pc = new RTCPeerConnection({ iceServers });
+        pcRef.current = pc;
 
-    const acceptCall = useCallback(async () => {
-        if (!socket || !currentUser || !incomingCall) return;
-
-        callPartnerRef.current = incomingCall.caller;
-        const pc = await createPeerConnection();
-        if (!pc) return;
-        
-        try {
-            // 1. Get local media and add tracks
-            localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = localStreamRef.current;
+        pc.onicecandidate = (event) => {
+            if (event.candidate && peerId && socket) {
+                socket.emit('webrtc:ice-candidate', { to: peerId, candidate: event.candidate });
             }
+        };
 
-            // 2. Set the remote description
-            await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
-            
-            // 3. Set up E2EE now that remote description is set
-            await setupE2EE(pc, false);
-            
-            // 4. Create and set local description
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            
-            // 5. Send the answer
-            socket.emit('webrtc:answer', { to: incomingCall.caller.id, answer });
-            
-            setInCall(true);
-            setIncomingCall(null);
-        } catch(err) {
-            console.error("Failed to accept call", err);
-            rejectCall();
-            pc.close();
-        }
-    }, [socket, currentUser, incomingCall, createPeerConnection, localVideoRef, setupE2EE, rejectCall]);
+        pc.ontrack = (event) => {
+            setRemoteStream(event.streams[0]);
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = event.streams[0];
+            }
+        };
 
-    const toggleMic = () => {
-        localStreamRef.current?.getAudioTracks().forEach(track => {
-            track.enabled = !track.enabled;
-            setIsMuted(!track.enabled);
-        });
-    };
+        pc.oniceconnectionstatechange = () => {
+            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+                endCallCleanup();
+            }
+        };
 
-    const toggleCamera = () => {
-        localStreamRef.current?.getVideoTracks().forEach(track => {
-            track.enabled = !track.enabled;
-            setIsCameraOff(!track.enabled);
-        });
-    };
+        return pc;
+    }, [socket, remoteVideoRef, endCallCleanup]);
 
     useEffect(() => {
         if (!socket) return;
-        
-        const handleIncomingCall = (data: { from: User, offer: RTCSessionDescriptionInit }) => {
-            if (inCall) {
-                socket.emit('call:reject', { to: data.from.id, reason: 'busy' });
-                return;
-            }
-            setIncomingCall({ caller: data.from, offer: data.offer });
+
+        const handleIncomingCall = async (data: { from: string, offer: RTCSessionDescriptionInit }) => {
+            const callerProfile = await api.getProfileByUniqueId(data.from);
+            setIncomingCall({ caller: callerProfile, offer: data.offer });
+            setPeer(callerProfile);
+            setCallStatus('incoming');
         };
-        
-        const handleAnswer = async (data: { answer: RTCSessionDescriptionInit }) => {
-            if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'stable') {
-                await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+
+        const handleAnswer = (data: { answer: RTCSessionDescriptionInit }) => {
+            if (pcRef.current && pcRef.current.signalingState !== 'stable') {
+                pcRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+                setCallStatus('in-call');
             }
         };
 
-        const handleIceCandidate = async (data: { candidate: RTCIceCandidateInit }) => {
-            if (peerConnectionRef.current && data.candidate) {
-                try {
-                    await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-                } catch (e) {
-                    console.error("Error adding received ICE candidate", e);
-                }
+        const handleIceCandidate = (data: { candidate: RTCIceCandidateInit }) => {
+            if (pcRef.current && data.candidate) {
+                pcRef.current.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(console.error);
             }
+        };
+
+        const handleCallRejected = () => {
+            endCallCleanup();
+        };
+
+        const handleCallEnd = () => {
+            endCallCleanup();
         };
 
         socket.on('call:incoming', handleIncomingCall);
         socket.on('webrtc:answer', handleAnswer);
         socket.on('webrtc:ice-candidate', handleIceCandidate);
-        socket.on('call:end', endCall);
-        socket.on('call:rejected', () => { endCall(); });
+        socket.on('call:rejected', handleCallRejected);
+        socket.on('call:end', handleCallEnd);
 
         return () => {
             socket.off('call:incoming', handleIncomingCall);
             socket.off('webrtc:answer', handleAnswer);
             socket.off('webrtc:ice-candidate', handleIceCandidate);
-            socket.off('call:end', endCall);
-            socket.off('call:rejected');
+            socket.off('call:rejected', handleCallRejected);
+            socket.off('call:end', handleCallEnd);
         };
-    }, [socket, inCall, endCall]);
+    }, [socket, endCallCleanup]);
+
+    const startCall = useCallback(async (peerToCall: User) => {
+        if (!socket) return;
+        setPeer(peerToCall);
+        setCallStatus('calling');
+        try {
+            const pc = await setupPeerConnection(peerToCall.id);
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            setLocalStream(stream);
+            if (localVideoRef.current) {
+                localVideoRef.current.srcObject = stream;
+            }
+            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            const currentUser = await api.checkSession();
+            socket.emit('call:start', { to: peerToCall.id, from: currentUser, offer });
+
+        } catch (err) {
+            console.error("Failed to start call:", err);
+            setCallStatus("failed");
+            endCallCleanup();
+        }
+    }, [socket, setupPeerConnection, localVideoRef, endCallCleanup]);
+
+    const acceptCall = useCallback(async () => {
+        if (!socket || !incomingCall || !peer) return;
+        setCallStatus('in-call');
+        try {
+            const pc = await setupPeerConnection(peer.id);
+            await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
+
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            setLocalStream(stream);
+            if (localVideoRef.current) {
+                localVideoRef.current.srcObject = stream;
+            }
+            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('webrtc:answer', { to: peer.id, answer });
+
+            setIncomingCall(null);
+        } catch (err) {
+            console.error("Failed to answer call:", err);
+            setCallStatus("failed");
+            endCallCleanup();
+        }
+    }, [socket, incomingCall, peer, setupPeerConnection, localVideoRef, endCallCleanup]);
+
+    const rejectCall = useCallback(() => {
+        if (socket && peer) {
+            socket.emit('call:reject', { to: peer.id, reason: 'rejected' });
+        }
+        endCallCleanup();
+    }, [socket, peer, endCallCleanup]);
+
+    const endCall = useCallback(() => {
+        if (socket && peer) {
+            socket.emit('call:end', { to: peer.id });
+        }
+        endCallCleanup();
+    }, [socket, peer, endCallCleanup]);
+
+    const toggleMute = () => {
+        if (localStream) {
+            localStream.getAudioTracks().forEach(track => track.enabled = !track.enabled);
+            setIsMuted(prev => !prev);
+        }
+    };
+
+    const toggleCamera = () => {
+        if (localStream) {
+            localStream.getVideoTracks().forEach(track => track.enabled = !track.enabled);
+            setIsCameraOff(prev => !prev);
+        }
+    };
 
     return {
-        inCall,
+        callStatus,
+        localStream,
+        remoteStream,
         isMuted,
         isCameraOff,
         incomingCall,
+        peer,
         startCall,
         acceptCall,
         rejectCall,
         endCall,
-        toggleMic,
+        toggleMute,
         toggleCamera,
     };
 };
