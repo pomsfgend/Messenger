@@ -10,18 +10,12 @@ export const config = {
     TELEGRAM_GATEWAY_TOKEN: "AAECIAAArgRG8oaO7PZjS2gcteImfmNmq-_IhpgitDyqHw",
     VAPID_PUBLIC_KEY: "BOeHOKUcqQOFxj4JoJOdIhuUIEerEiyZhlbJuRuCT9XKDASRpz5dhDV-4AID3X9bY5vZXObnfiEsQD5Uo1DprQs",
     VAPID_PRIVATE_KEY: "8BW9TZKg6uhymVjzW9wgKNv4kirl51tPdYXC_Q9C8Pg",
-    // NOTE: Paths have been corrected to use forward slashes for cross-platform compatibility.
-    // The typo 'binffmpeg.exe' has been corrected to 'bin/ffmpeg.exe'
     FFMPEG_PATH: "C:/Users/g2g/Desktop/мессенджер/ffmpeg-master-latest-win64-gpl-shared/bin/ffmpeg.exe",
     FFPROBE_PATH: "C:/Users/g2g/Desktop/мессенджер/ffmpeg-master-latest-win64-gpl-shared/bin/ffprobe.exe",
     PORT: 5173,
-    // This is set by the npm script `dev:https`, so we still read it from the process.
     USE_HTTPS: process.env.USE_HTTPS === 'true', 
     
-    // --- TURN Server Configuration ---
-    // IMPORTANT: For production, this MUST be your server's public IP address.
-    // For local testing, 127.0.0.1 is fine.
     TURN_PUBLIC_IP: "127.0.0.1", 
     TURN_USERNAME: "bulkhead",
-    TURN_PASSWORD: crypto.randomBytes(16).toString('hex') // Random password on each server start
+    TURN_PASSWORD: crypto.randomBytes(16).toString('hex')
 };

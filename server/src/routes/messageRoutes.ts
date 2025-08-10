@@ -59,7 +59,18 @@ router.get('/:chatId', async (req: Request, res: Response) => {
             return res.status(403).json({ message: "Access denied to this chat." });
         }
 
-        let query = `SELECT * FROM messages WHERE chatId = ?`;
+        let query = `
+            SELECT 
+                id, chatId, senderId, content, timestamp, type, 
+                media_url as mediaUrl, 
+                media_mimetype as mediaMimetype, 
+                is_edited as isEdited, 
+                is_deleted as isDeleted, 
+                reactions, 
+                forwarded_info as forwardedInfo, 
+                read_by as readBy
+            FROM messages 
+            WHERE chatId = ?`;
         const params: any[] = [chatId];
 
         if (before) {
@@ -70,14 +81,20 @@ router.get('/:chatId', async (req: Request, res: Response) => {
         query += ` ORDER BY timestamp DESC LIMIT ?`;
         params.push(Number(limit) + 1); // Fetch one extra to check if there are more
 
-        const rows: Message[] = await db.all(query, ...params);
+        const rows: any[] = await db.all(query, ...params);
         
         const hasMore = rows.length > Number(limit);
         if (hasMore) {
             rows.pop(); // Remove the extra message
         }
+        
+        const messages: Message[] = rows.map(row => ({
+            ...row,
+            reactions: row.reactions ? JSON.parse(row.reactions) : {},
+            forwardedInfo: row.forwardedInfo ? JSON.parse(row.forwardedInfo) : undefined,
+            readBy: row.readBy ? JSON.parse(row.readBy) : []
+        })).reverse();
 
-        const messages = rows.reverse(); // Newest at the bottom
 
         // Get all unique user IDs from the fetched messages
         const userIds = [...new Set(messages.map(m => m.senderId))];
@@ -142,10 +159,6 @@ router.delete('/:messageId', async (req: Request, res: Response) => {
             return res.status(403).json({ message: "You don't have permission to delete this message." });
         }
         
-        // Soft delete for now, for potential "undo" feature
-        // await db.run('UPDATE messages SET is_deleted = 1, content = "" WHERE id = ?', messageId);
-        
-        // Hard delete
         await db.run('DELETE FROM messages WHERE id = ?', messageId);
 
         if (message.media_url) {
@@ -193,7 +206,6 @@ router.post('/bulk-delete', async (req: Request, res: Response) => {
             const deletePlaceholders = authorizedToDelete.map(() => '?').join(',');
             await db.run(`DELETE FROM messages WHERE id IN (${deletePlaceholders})`, authorizedToDelete);
             
-            // Asynchronously delete associated media files
             (async () => {
                 for (const msg of messages) {
                     if (msg.media_url && authorizedToDelete.includes(msg.id)) {
@@ -280,7 +292,6 @@ router.post('/forward', async (req: Request, res: Response) => {
                 [newMessage.id, newMessage.chatId, newMessage.senderId, newMessage.content, newMessage.timestamp, newMessage.type, newMessage.mediaUrl, newMessage.mediaMimetype, JSON.stringify(newMessage.forwardedInfo)]
             );
 
-            // Emit via WebSocket
             const senderInfo = await db.get<User>('SELECT id, name, uniqueId, avatar_url FROM users WHERE id = ?', forwarderId);
             const payload = { ...newMessage, sender: senderInfo };
             io.to(chatId).emit('newMessage', payload);

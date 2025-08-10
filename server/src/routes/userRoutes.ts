@@ -14,7 +14,6 @@ import '../types';
 
 const router = express.Router();
 
-// multer setup for avatar uploads
 const tempUploadDir = path.join(__dirname, '..', 'uploads', 'temp');
 fs.mkdir(tempUploadDir, { recursive: true });
 const upload = multer({
@@ -30,16 +29,13 @@ const privacySensitiveFields = `
     u.privacy_show_phone, u.privacy_show_telegram, u.privacy_show_dob, u.privacy_show_description,
     u.privacy_show_last_seen, u.privacy_show_typing
 `;
-const allUserFieldsForCurrentUser = 'id, username, name, uniqueId, gender, dob, createdAt, telegram_id as telegramId, phone_number as phoneNumber, is_anonymous as isAnonymous, avatar_url as avatarUrl, profile_setup as profileSetup, role, is_banned as isBanned, ban_reason as banReason, ban_expires_at as banExpiresAt, google_id as googleId, mute_expires_at as muteExpiresAt, mute_reason as muteReason, last_seen as lastSeen, profile_color, message_color, description, profile_emoji, profile_emoji_density, profile_emoji_rotation, privacy_show_phone, privacy_show_telegram, privacy_show_dob, privacy_show_description, privacy_show_last_seen, privacy_show_typing';
+const allUserFieldsForCurrentUser = 'id, username, name, uniqueId, gender, dob, createdAt, telegram_id as telegramId, phone_number as phoneNumber, is_anonymous as isAnonymous, avatar_url as avatarUrl, profile_setup as profileSetup, role, is_banned as isBanned, ban_reason as banReason, ban_expires_at as banExpiresAt, google_id as googleId, mute_expires_at as muteExpiresAt, mute_reason as muteReason, last_seen as lastSeen, profile_color, message_color, description, profile_emoji, profile_emoji_density, profile_emoji_rotation, privacy_show_phone, privacy_show_telegram, privacy_show_dob, privacy_show_description, privacy_show_last_seen, privacy_show_typing, is_2fa_enabled';
 
 
-// GET /api/users/me/chats
 router.get('/me/chats', async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const db = getDb();
     try {
-        // CRITICAL FIX: This query has been completely rewritten for robustness and correctness.
-        // It now correctly finds the latest message for every conversation partner.
         const chats = await db.all(`
             WITH UserPartners AS (
                 SELECT DISTINCT
@@ -66,6 +62,7 @@ router.get('/me/chats', async (req: Request, res: Response) => {
             )
             SELECT
                 p.id, p.name, p.username, p.uniqueId, p.avatar_url as avatarUrl, p.last_seen as lastSeen,
+                CASE WHEN p.last_seen IS NULL THEN 1 ELSE 0 END as isOnline,
                 p.profile_color, p.message_color, p.createdAt,
                 lm.content as lastMessageContent,
                 lm.senderId as lastMessageSenderId,
@@ -94,7 +91,6 @@ router.get('/me/chats', async (req: Request, res: Response) => {
 });
 
 
-// GET /api/users/search
 router.get('/search', async (req: Request, res: Response) => {
     const { q, uniqueId } = req.query;
     const db = getDb();
@@ -120,7 +116,6 @@ router.get('/search', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/users/profile/:uniqueId
 router.get('/profile/:uniqueId', async (req: Request, res: Response) => {
     const { uniqueId } = req.params;
     const db = getDb();
@@ -136,7 +131,6 @@ router.get('/profile/:uniqueId', async (req: Request, res: Response) => {
     }
 });
 
-// GET /api/users/online
 router.get('/online', async (req: Request, res: Response) => {
     const db = getDb();
     try {
@@ -147,7 +141,6 @@ router.get('/online', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/users/me
 router.put('/me', async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { name, uniqueId, dob, phoneNumber, telegramId, description, profile_color, message_color, profile_emoji, emojiDensity, emojiRotation } = req.body;
@@ -165,28 +158,18 @@ router.put('/me', async (req: Request, res: Response) => {
              WHERE id = ?`,
             [name, uniqueId, dob, phoneNumber, telegramId, description, profile_color, message_color, profile_emoji, emojiDensity, emojiRotation, userId]
         );
-        const updatedUser = await db.get(`SELECT ${allUserFieldsForCurrentUser} FROM users WHERE id = ?`, userId);
+        const updatedUser = await db.get(`SELECT ${allUserFieldsForCurrentUser}, is_2fa_enabled FROM users WHERE id = ?`, userId);
         
         const io = req.app.get('io') as SocketIOServer;
-        // Broadcast a generic, public-safe update to the global channel
         io.to('global').emit('userProfileUpdated', {
             id: userId,
             name: updatedUser.name,
             avatarUrl: updatedUser.avatarUrl,
             uniqueId: updatedUser.uniqueId,
             profile_color: updatedUser.profile_color,
-            message_color: updatedUser.message_color
+            message_color: updatedUser.message_color,
         });
         
-        // Find all private chat partners and send them a detailed, filtered update
-        const partners: { partnerId: string }[] = await db.all(`
-            SELECT DISTINCT
-                CASE
-                    WHEN SUBSTR(chatId, 1, INSTR(chatId, '-') - 1) = ? THEN SUBSTR(chatId, INSTR(chatId, '-') + 1)
-                    ELSE SUBSTR(chatId, 1, INSTR(chatId, '-') - 1)
-                END as partnerId
-            FROM messages
-`);
         res.json(updatedUser);
     } catch (error) {
         console.error("Failed to update user:", error);
@@ -194,13 +177,11 @@ router.put('/me', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/users/me/privacy
 router.put('/me/privacy', async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const settings = req.body;
     const db = getDb();
 
-    // Whitelist allowed fields
     const allowedFields = [
         'privacy_show_phone', 'privacy_show_telegram', 'privacy_show_dob',
         'privacy_show_description', 'privacy_show_last_seen', 'privacy_show_typing'
@@ -221,7 +202,7 @@ router.put('/me/privacy', async (req: Request, res: Response) => {
         
         await db.run(`UPDATE users SET ${setClause} WHERE id = ?`, params);
 
-        const updatedUser = await db.get(`SELECT ${allUserFieldsForCurrentUser} FROM users WHERE id = ?`, userId);
+        const updatedUser = await db.get(`SELECT ${allUserFieldsForCurrentUser}, is_2fa_enabled FROM users WHERE id = ?`, userId);
         res.json(updatedUser);
     } catch (error) {
         console.error('Failed to update privacy settings:', error);
@@ -229,7 +210,6 @@ router.put('/me/privacy', async (req: Request, res: Response) => {
     }
 });
 
-// --- AVATAR ROUTES ---
 router.post('/me/avatar', upload, async (req: Request, res: Response) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
@@ -246,14 +226,12 @@ router.post('/me/avatar', upload, async (req: Request, res: Response) => {
             const cropData = JSON.parse(req.body.crop);
             await cropImage(tempPath, finalPath, cropData);
         } else {
-             // If it's a video or GIF, just move it.
              await moveFile(tempPath, finalPath);
         }
         
         await db.run('INSERT INTO user_avatars (id, userId, filename, createdAt, mimetype) VALUES (?, ?, ?, ?, ?)',
             [`avatar_${crypto.randomBytes(8).toString('hex')}`, userId, finalFilename, new Date().toISOString(), req.file.mimetype]);
         
-        // Set as primary avatar immediately on upload
         await db.run('UPDATE users SET avatar_url = ? WHERE id = ?', [finalFilename, userId]);
         
         const io = req.app.get('io') as SocketIOServer;
@@ -339,7 +317,6 @@ router.delete('/me/avatar/:avatarId', async (req: Request, res: Response) => {
     }
 });
 
-// PASSWORD CHANGE
 router.put('/me/password', async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { currentPassword, newPassword } = req.body;
@@ -367,16 +344,13 @@ router.put('/me/password', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE ACCOUNT
 router.delete('/me', async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const db = getDb();
     
-    // Using a transaction to ensure all or nothing is deleted.
     try {
         await db.run('BEGIN TRANSACTION');
         
-        // This will cascade and delete messages, avatars etc. due to PRAGMA foreign_keys = ON;
         const result = await db.run('DELETE FROM users WHERE id = ?', userId);
         
         if (result.changes === 0) {
@@ -395,7 +369,6 @@ router.delete('/me', async (req: Request, res: Response) => {
     }
 });
 
-// PUT /api/users/me/chats/:chatId/state - New endpoint for muting/unmuting
 router.put('/me/chats/:chatId/state', async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { chatId } = req.params;
@@ -415,7 +388,6 @@ router.put('/me/chats/:chatId/state', async (req: Request, res: Response) => {
             [userId, chatId, is_muted ? 1 : 0]
         );
         
-        // Notify the user's other clients via WebSocket
         io.to(userId).emit('chatStateUpdated', { chatId, is_muted });
 
         res.json({ message: 'Chat state updated successfully.' });

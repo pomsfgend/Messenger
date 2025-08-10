@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
+const { useNavigate } = ReactRouterDOM;
 import * as api from '../services/api';
 import type { User } from '../types';
 import toast from 'react-hot-toast';
@@ -30,7 +31,7 @@ const AdminPage: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
 
     const containerRef = useRef<HTMLDivElement>(null);
     const handleRef = useRef<HTMLDivElement>(null);

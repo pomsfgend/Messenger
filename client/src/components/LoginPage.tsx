@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../hooks/useI18n';
 import { translateApiError } from '../i18n';
@@ -30,7 +30,7 @@ const LoginPage: React.FC = () => {
     const { login, googleLogin, anonymousLogin, phoneRequestCode, phoneLogin, telegramLogin, updateCurrentUser } = useAuth();
     const { t } = useI18n();
     const { mode } = useTheme();
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
 
     useEffect(() => {
         window.onTelegramAuth = async (user: any) => {
@@ -264,9 +264,9 @@ const LoginPage: React.FC = () => {
                 
                 <p className="text-center text-sm text-slate-500 dark:text-slate-400 pt-4">
                     {t('login.noAccount')}{' '}
-                    <ReactRouterDOM.Link to="/register" className="font-medium text-[rgb(var(--color-accent-primary))] hover:text-[rgb(var(--color-accent-secondary))] transition-colors">
+                    <Link to="/register" className="font-medium text-[rgb(var(--color-accent-primary))] hover:text-[rgb(var(--color-accent-secondary))] transition-colors">
                         {t('login.signUp')}
-                    </ReactRouterDOM.Link>
+                    </Link>
                 </p>
             </div>
         </div>

@@ -50,7 +50,6 @@ const notifyContactsOfPresenceChange = async (io: Server, userId: string, online
     
     let lastSeen: string | null = null;
     if (!online) {
-        // FIX: Respect privacy settings for last seen time
         lastSeen = (user?.privacy_show_last_seen === 0) ? 'recent' : (user?.last_seen || new Date().toISOString());
     }
     
@@ -100,7 +99,7 @@ export const initializeWebSocket = (io: Server) => {
         const userId = authSocket.user.id;
         authSocket.join(userId);
         addUserSocket(userId, authSocket.id);
-        userWindowFocus.set(userId, true); // Assume focus on new connection
+        userWindowFocus.set(userId, true);
         
         if (userSockets.get(userId)?.size === 1) {
             await db.run('UPDATE users SET last_seen = NULL WHERE id = ?', userId);
@@ -155,7 +154,6 @@ export const initializeWebSocket = (io: Server) => {
                     }
                 }
                 const messageIds = messagesToUpdate.map(m => m.id);
-                // CRITICAL FIX: Emit to the entire chat room so all participants get the update.
                 io.to(chatId).emit('messagesRead', { messageIds, chatId, readerId });
             }
 
@@ -191,7 +189,6 @@ export const initializeWebSocket = (io: Server) => {
                 }
                 
                 const partnerId = isPrivateChat ? chatId.split('-').find(id => id !== senderId) : null;
-                // CRITICAL FIX: Prevent server crash if recipient was deleted
                 if (partnerId) {
                     const partnerExists = await db.get('SELECT id FROM users WHERE id = ?', partnerId);
                     if (!partnerExists) {
@@ -223,24 +220,19 @@ export const initializeWebSocket = (io: Server) => {
                 const payload = { ...newMessage, tempId, sender: senderInfo };
                 
                 if (isNewChat && partnerId) {
-                    // This is a new chat, send a special event with all necessary info to avoid race conditions
                     const partnerInfo = await db.get(`SELECT ${CHAT_CONTACT_USER_FIELDS} FROM users WHERE id = ?`, partnerId);
                     
-                    // Send to sender with partner's info
                     io.to(senderId).emit('newChatCreated', { 
                         contact: { ...partnerInfo, type: 'private' },
                         firstMessage: payload
                     });
-                    // Send to partner with sender's info
                     io.to(partnerId).emit('newChatCreated', {
                         contact: { ...senderInfo, type: 'private' },
                         firstMessage: payload
                     });
                 } else {
-                    // This is an existing chat, just send the message
                     io.to(chatId).emit('newMessage', payload);
                     if (partnerId) {
-                        // Also emit to partner's personal room to ensure sidebar updates
                         io.to(partnerId).emit('newMessage', payload);
                     }
                 }
@@ -265,10 +257,9 @@ export const initializeWebSocket = (io: Server) => {
                             title: `New message from ${senderInfo?.name || 'Someone'}`,
                             body: content || (type === 'image' ? 'Sent an image' : (type === 'video' || type === 'video_circle') ? 'Sent a video' : 'Sent a file'),
                             tag: chatId,
-                            url: `/chat/${chatId}`,
+                            url: `/app/chat/${chatId}`,
                         });
                         
-                        // Send Web Push Notification
                         const subscriptions = await db.all('SELECT * FROM push_subscriptions WHERE userId = ?', partnerId);
                         subscriptions.forEach(sub => {
                             const subObject = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
@@ -278,7 +269,6 @@ export const initializeWebSocket = (io: Server) => {
                             });
                         });
                         
-                        // Send Telegram Notification
                         if (bot && recipient?.telegram_id) {
                             try {
                                 let tgText: string;
@@ -304,7 +294,6 @@ export const initializeWebSocket = (io: Server) => {
             if (!authSocket.user) return;
             try {
                 const sender = await db.get('SELECT privacy_show_typing FROM users WHERE id = ?', authSocket.user.id);
-                // This check correctly handles 1 (enabled) and 0 (disabled).
                 const canShowTyping = sender && sender.privacy_show_typing !== 0;
                 if (canShowTyping) {
                     authSocket.to(chatId).emit('user-is-typing', { chatId, userId: authSocket.user.id });
@@ -316,8 +305,6 @@ export const initializeWebSocket = (io: Server) => {
         
         authSocket.on('stop-typing', async ({ chatId }: { chatId: string }) => {
             if (!authSocket.user) return;
-            // No need to check privacy here; if a 'start' was sent, a 'stop' should follow for UI consistency.
-            // The privacy check on 'start-typing' is sufficient.
             authSocket.to(chatId).emit('user-stopped-typing', { chatId, userId: authSocket.user.id });
         });
 
@@ -346,7 +333,7 @@ export const initializeWebSocket = (io: Server) => {
                 await db.run('UPDATE messages SET reactions = ? WHERE id = ?', [JSON.stringify(reactions), messageId]);
                 await db.run('COMMIT');
 
-                io.to(message.chatId).emit('messageReactionUpdated', { messageId, reactions });
+                io.to(message.chatId).emit('messageReactionUpdated', { messageId, reactions, chatId: message.chatId });
 
             } catch (e) {
                 await db.run('ROLLBACK').catch(console.error);
@@ -354,7 +341,6 @@ export const initializeWebSocket = (io: Server) => {
             }
         });
         
-        // --- WebRTC Signaling Events ---
         authSocket.on('call:start', (data) => {
             console.log(`User ${userId} is calling ${data.to}`);
             io.to(data.to).emit('call:incoming', { from: data.from, offer: data.offer });
@@ -380,11 +366,9 @@ export const initializeWebSocket = (io: Server) => {
 
         authSocket.on('disconnect', async () => {
             removeUserSocket(userId, authSocket.id);
-            // Clean up any active calls this user was in
             io.to(activeCalls.get(userId)!).emit('call:end');
             activeCalls.delete(userId);
             
-            // Clear state for the disconnected user
             if (!userSockets.has(userId)) {
                  userActiveChat.delete(userId);
                  userWindowFocus.delete(userId);

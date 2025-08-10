@@ -124,7 +124,7 @@ const EMOJI_MAP: Record<string, string> = {
 };
 
 const ReactionPalette: React.FC<{ onSelect: (emoji: string) => void; isOwn: boolean; }> = ({ onSelect, isOwn }) => {
-    const reactions = ['👍', '❤️', '😂', '😯', '😢', '🙏'];
+    const reactions = ['10', '21', '12', '24', '14', '26'];
     const positionClass = isOwn ? 'right-0' : 'left-0';
     return (
         <div className={`absolute -top-10 ${positionClass} bg-white dark:bg-slate-800 rounded-full shadow-lg p-1 flex gap-1 z-10 animate-fade-in-up`}>
@@ -133,7 +133,7 @@ const ReactionPalette: React.FC<{ onSelect: (emoji: string) => void; isOwn: bool
                     key={r} 
                     onClick={(e) => { e.stopPropagation(); onSelect(r); }}
                     className="text-2xl p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-transform transform hover:scale-125"
-                >{r}</button>
+                >{EMOJI_MAP[r]}</button>
             ))}
         </div>
     )
@@ -216,8 +216,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         const filename = message.mediaUrl.split('/').pop();
         return `/api/media/${filename}`;
     })();
-
+    
     const bubbleRootClasses = [
+        'flex w-full',
+        isOwn ? 'justify-end' : 'justify-start'
+    ].join(' ');
+
+    const bubbleInnerClasses = [
         'flex items-end gap-3 group',
         selectionMode ? 'cursor-pointer' : '',
     ].filter(Boolean).join(' ');
@@ -225,54 +230,56 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (isVideoCircle) {
         return (
-            <div 
-                ref={messageRef}
-                id={message.id}
-                onContextMenu={(e) => !selectionMode && onContextMenu(e, message)}
-                onClick={() => selectionMode && onToggleSelect(message.id)}
-                className={bubbleRootClasses}
-            >
-                 {!isOwn && <Avatar user={sender || {}} size="small" />}
-                 <div className={`relative ${isOwn ? 'items-end' : 'items-start'} flex flex-col min-w-0`}>
-                    <div className="flex items-center gap-2 relative">
-                         {selectionMode && (
-                            <div className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full border-2 border-[rgb(var(--color-accent-primary))] bg-white dark:bg-slate-800 ${isOwn ? 'order-last' : ''} mx-1`}>
-                                {isSelected && <div className="w-3 h-3 bg-[rgb(var(--color-accent-primary))] rounded-full"></div>}
+            <div className={bubbleRootClasses}>
+                <div
+                    ref={messageRef}
+                    id={message.id}
+                    onContextMenu={(e) => !selectionMode && onContextMenu(e, message)}
+                    onClick={() => selectionMode && onToggleSelect(message.id)}
+                    className={bubbleInnerClasses}
+                >
+                     {!isOwn && <Avatar user={sender || {}} size="small" />}
+                     <div className={`relative ${isOwn ? 'items-end' : 'items-start'} flex flex-col min-w-0`}>
+                        <div className="flex items-center gap-2 relative">
+                             {selectionMode && (
+                                <div className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full border-2 border-[rgb(var(--color-accent-primary))] bg-white dark:bg-slate-800 ${isOwn ? 'order-last' : ''} mx-1`}>
+                                    {isSelected && <div className="w-3 h-3 bg-[rgb(var(--color-accent-primary))] rounded-full"></div>}
+                                </div>
+                            )}
+                            <div className="relative">
+                                {isVisible && <InlineVideoCirclePlayer key={secureMediaUrl} src={secureMediaUrl} onPlaybackChange={setIsCirclePlaying} isOwn={isOwn} />}
+                                 {isReacting && <ReactionPalette onSelect={handleReaction} isOwn={isOwn} />}
+                            </div>
+                        </div>
+                        {hasReactions && (
+                             <div className={`flex gap-1 mt-1 p-1 rounded-full bg-slate-200/50 dark:bg-slate-900/50 ${isOwn ? 'mr-1' : 'ml-1'}`}>
+                                 {Object.entries(message.reactions!).map(([emoji, userIds]) => {
+                                    const reactorIds = userIds as string[];
+                                    if (reactorIds.length === 0) return null;
+                                    const displayEmoji = EMOJI_MAP[emoji] || emoji;
+                                    return (
+                                        <button 
+                                            key={emoji} 
+                                            onClick={(e) => { e.stopPropagation(); handleReaction(emoji); }}
+                                            className={`px-2 py-0.5 rounded-full text-xs transition-colors ${reactorIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
+                                        >
+                                            {displayEmoji} {reactorIds.length}
+                                        </button>
+                                    )
+                                })}
                             </div>
                         )}
-                        <div className="relative">
-                            {isVisible && <InlineVideoCirclePlayer key={secureMediaUrl} src={secureMediaUrl} onPlaybackChange={setIsCirclePlaying} isOwn={isOwn} />}
-                             {isReacting && <ReactionPalette onSelect={handleReaction} isOwn={isOwn} />}
-                        </div>
-                    </div>
-                    {hasReactions && (
-                         <div className={`flex gap-1 mt-1 p-1 rounded-full bg-slate-200/50 dark:bg-slate-900/50 ${isOwn ? 'mr-1' : 'ml-1'}`}>
-                             {Object.entries(message.reactions!).map(([emoji, userIds]) => {
-                                const reactorIds = userIds as string[];
-                                if (reactorIds.length === 0) return null;
-                                const displayEmoji = EMOJI_MAP[emoji] || emoji;
-                                return (
-                                    <button 
-                                        key={emoji} 
-                                        onClick={(e) => { e.stopPropagation(); handleReaction(emoji); }}
-                                        className={`px-2 py-0.5 rounded-full text-xs transition-colors ${reactorIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
-                                    >
-                                        {displayEmoji} {reactorIds.length}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    )}
-                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 px-2">
-                         {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                 </div>
+                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 px-2">
+                             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                     </div>
+                </div>
             </div>
         );
     }
     
     let bubbleStyle: React.CSSProperties = {};
-    let bubbleClasses = 'flex flex-col max-w-full overflow-hidden';
+    let bubbleClasses = 'flex flex-col max-w-sm sm:max-w-md md:max-w-lg overflow-hidden';
     let textColorClass = 'text-slate-800 dark:text-slate-200';
 
     if (isOwn) {
@@ -288,7 +295,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         const senderColor = sender?.message_color;
         if (senderColor) {
             bubbleStyle = { backgroundColor: senderColor };
-            textColorClass = 'text-white'; // Assume dark colors need light text
+            textColorClass = 'text-white'; 
         } else {
             bubbleClasses += ' bg-white dark:bg-slate-700 shadow-md';
         }
@@ -302,86 +309,88 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
 
     return (
-        <div 
-            ref={messageRef}
-            id={message.id}
-            onContextMenu={(e) => !selectionMode && onContextMenu(e, message)}
-            onClick={() => selectionMode && onToggleSelect(message.id)}
-            className={`flex items-end gap-3 group ${selectionMode ? 'cursor-pointer' : ''}`}
-        >
-            {!isOwn && (
-                <div className="cursor-pointer" onClick={() => !selectionMode && sender && onViewProfile(sender)}>
-                    <Avatar user={sender || {}} size="small" />
-                </div>
-            )}
-            <div className={`relative ${isOwn ? 'items-end' : 'items-start'} flex flex-col min-w-0`}>
-                <div className="flex items-center gap-2 relative">
-                    {selectionMode && (
-                         <div className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full border-2 border-[rgb(var(--color-accent-primary))] bg-white dark:bg-slate-800 ${isOwn ? 'order-last' : ''} mx-1`}>
-                             {isSelected && <div className="w-3 h-3 bg-[rgb(var(--color-accent-primary))] rounded-full"></div>}
-                         </div>
-                    )}
-                    
-                    <div 
-                        className={bubbleClasses}
-                        style={bubbleStyle}
-                    >
-                        {isReacting && <ReactionPalette onSelect={handleReaction} isOwn={isOwn} />}
-
-                        {message.forwardedInfo && (
-                             <div className={`px-3 pt-3 text-xs font-semibold ${textColorClass} opacity-80`}>
-                                {t('chat.forwardedFrom', { name: message.forwardedInfo.originalSenderName })}
-                            </div>
-                        )}
-
-                        {!isOwn && sender && !isPrivateChat && (
-                            <p 
-                                className="font-bold text-sm mb-1 cursor-pointer px-3 pt-3" 
-                                style={{ color: sender.profile_color || 'rgb(var(--color-accent-primary))'}}
-                                onClick={() => sender && onViewProfile(sender)}
-                            >{sender.name}</p>
-                        )}
-                        
-                        {(message.mediaUrl || typeof uploadProgress === 'number') && (
-                             <MediaMessage message={{...message, mediaUrl: secureMediaUrl}} onMediaClick={() => onMediaClick(message)} isVisible={isVisible} uploadProgress={uploadProgress} onCancelUpload={onCancelUpload} />
-                        )}
-                        
-                        {message.content && message.type !== 'audio' && (
-                             <div 
-                                className={`text-sm break-words whitespace-pre-wrap ${textColorClass} px-3 ${(message.mediaUrl || typeof uploadProgress === 'number' || message.forwardedInfo) ? 'pt-2 pb-3' : 'py-3'}`}
-                                dangerouslySetInnerHTML={{ __html: parseMarkdown(message.content) }}
-                            />
-                        )}
-                    </div>
-                </div>
-
-                 {hasReactions && (
-                    <div className={`flex gap-1 mt-1 p-1 rounded-full bg-slate-200/50 dark:bg-slate-900/50 ${isOwn ? 'mr-1' : 'ml-1'}`}>
-                        {Object.entries(message.reactions!).map(([emoji, userIds]) => {
-                            const reactorIds = userIds as string[];
-                            if (reactorIds.length === 0) return null;
-                            const displayEmoji = EMOJI_MAP[emoji] || emoji;
-                            return (
-                                <button 
-                                    key={emoji} 
-                                    onClick={() => handleReaction(emoji)}
-                                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${reactorIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
-                                >
-                                    {displayEmoji} {reactorIds.length}
-                                </button>
-                            );
-                        })}
+        <div className={bubbleRootClasses}>
+            <div 
+                ref={messageRef}
+                id={message.id}
+                onContextMenu={(e) => !selectionMode && onContextMenu(e, message)}
+                onClick={() => selectionMode && onToggleSelect(message.id)}
+                className={bubbleInnerClasses}
+            >
+                {!isOwn && (
+                    <div className="cursor-pointer" onClick={() => !selectionMode && sender && onViewProfile(sender)}>
+                        <Avatar user={sender || {}} size="small" />
                     </div>
                 )}
-                
-                <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-1 px-2">
-                     {message.isEdited && <span className="mr-1">{t('chat.edited')}</span>}
-                     <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                     {isOwn && (
-                         <span className={`read-receipt read-receipt-own ${message.readBy && message.readBy.length > 0 ? 'read' : ''}`}>
-                            {message.readBy && message.readBy.length > 0 ? '✓✓' : '✓'}
-                         </span>
-                     )}
+                <div className={`relative ${isOwn ? 'items-end' : 'items-start'} flex flex-col min-w-0`}>
+                    <div className="flex items-center gap-2 relative">
+                        {selectionMode && (
+                             <div className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full border-2 border-[rgb(var(--color-accent-primary))] bg-white dark:bg-slate-800 ${isOwn ? 'order-last' : ''} mx-1`}>
+                                 {isSelected && <div className="w-3 h-3 bg-[rgb(var(--color-accent-primary))] rounded-full"></div>}
+                             </div>
+                        )}
+                        
+                        <div 
+                            className={bubbleClasses}
+                            style={bubbleStyle}
+                        >
+                            {isReacting && <ReactionPalette onSelect={handleReaction} isOwn={isOwn} />}
+
+                            {message.forwardedInfo && (
+                                 <div className={`px-3 pt-3 text-xs font-semibold ${textColorClass} opacity-80`}>
+                                    {t('chat.forwardedFrom', { name: message.forwardedInfo.originalSenderName })}
+                                </div>
+                            )}
+
+                            {!isOwn && sender && !isPrivateChat && (
+                                <p 
+                                    className="font-bold text-sm mb-1 cursor-pointer px-3 pt-3" 
+                                    style={{ color: sender.profile_color || 'rgb(var(--color-accent-primary))'}}
+                                    onClick={() => sender && onViewProfile(sender)}
+                                >{sender.name}</p>
+                            )}
+                            
+                            {(message.mediaUrl || typeof uploadProgress === 'number') && (
+                                 <MediaMessage message={{...message, mediaUrl: secureMediaUrl}} onMediaClick={() => onMediaClick(message)} isVisible={isVisible} uploadProgress={uploadProgress} onCancelUpload={onCancelUpload} />
+                            )}
+                            
+                            {message.content && message.type !== 'audio' && (
+                                 <div 
+                                    className={`text-sm break-words whitespace-pre-wrap ${textColorClass} px-3 ${(message.mediaUrl || typeof uploadProgress === 'number' || message.forwardedInfo) ? 'pt-2 pb-3' : 'py-3'}`}
+                                    dangerouslySetInnerHTML={{ __html: parseMarkdown(message.content) }}
+                                />
+                            )}
+                        </div>
+                    </div>
+
+                     {hasReactions && (
+                        <div className={`flex gap-1 mt-1 p-1 rounded-full bg-slate-200/50 dark:bg-slate-900/50 ${isOwn ? 'mr-1' : 'ml-1'}`}>
+                            {Object.entries(message.reactions!).map(([emoji, userIds]) => {
+                                const reactorIds = userIds as string[];
+                                if (reactorIds.length === 0) return null;
+                                const displayEmoji = EMOJI_MAP[emoji] || emoji;
+                                return (
+                                    <button 
+                                        key={emoji} 
+                                        onClick={() => handleReaction(emoji)}
+                                        className={`px-2 py-0.5 rounded-full text-xs transition-colors ${reactorIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
+                                    >
+                                        {displayEmoji} {reactorIds.length}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                    
+                    <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-1 px-2">
+                         {message.isEdited && <span className="mr-1">{t('chat.edited')}</span>}
+                         <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                         {isOwn && (
+                             <span className={`read-receipt read-receipt-own ${message.readBy && message.readBy.length > 0 ? 'read' : ''}`}>
+                                {message.readBy && message.readBy.length > 0 ? '✓✓' : '✓'}
+                             </span>
+                         )}
+                    </div>
                 </div>
             </div>
         </div>

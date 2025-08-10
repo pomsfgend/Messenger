@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
+const { useNavigate } = ReactRouterDOM;
 import { useAuth } from '../hooks/useAuth';
 import * as api from '../services/api';
 import type { ChatContact, User, Message } from '../types';
@@ -49,7 +50,7 @@ const Sidebar: React.FC<{
 }> = ({ activeChatId, onSidebarClose }) => {
     const { currentUser, logout, updateCurrentUser } = useAuth();
     const { t } = useI18n();
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
     const { socket } = useSocket();
     const [contacts, setContacts] = useState<ChatContact[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -174,7 +175,6 @@ const Sidebar: React.FC<{
         const handleNewMessage = (payload: Message & { sender: User }) => {
             const { sender, ...msg } = payload;
             
-            // FIX: Deduplication to prevent double notifications from server double-emit.
             if (processedMessageIds.current.has(msg.id)) return;
             processedMessageIds.current.add(msg.id);
             setTimeout(() => processedMessageIds.current.delete(msg.id), 2000);
@@ -204,13 +204,14 @@ const Sidebar: React.FC<{
             const isWindowFocused = document.hasFocus();
         
             if (!isFromSelf && (!isChatActive || !isWindowFocused)) {
-                const contact = contactsRef.current.find(c => {
-                    if (msg.chatId === GLOBAL_CHAT_ID) return c.id === GLOBAL_CHAT_ID;
+                const isGlobal = msg.chatId === GLOBAL_CHAT_ID;
+                const isGloballyMutedNow = localStorage.getItem('global_chat_muted') === 'true';
+                const contact = isGlobal ? null : contactsRef.current.find(c => {
                     const partnerId = msg.chatId.split('-').find(id => id !== currentUser.id);
                     return c.id === partnerId;
                 });
                 
-                const isMuted = msg.chatId === GLOBAL_CHAT_ID ? isGlobalMutedRef.current : contact?.is_muted;
+                const isMuted = isGlobal ? isGloballyMutedNow : contact?.is_muted;
         
                 if (!isMuted) {
                     audioRef.current?.play().catch(e => console.warn("Audio play failed:", e));
@@ -224,7 +225,7 @@ const Sidebar: React.FC<{
             const { contact, firstMessage } = data;
         
             setContacts(prev => {
-                if (prev.some(c => c.id === contact.id)) return prev; // Safety check
+                if (prev.some(c => c.id === contact.id)) return prev;
         
                 const newContactWithMsg = {
                     ...contact,
@@ -242,7 +243,7 @@ const Sidebar: React.FC<{
                 const privateChatId = firstMessage.chatId.split('-').sort().join('-');
                 setUnreadCounts(prev => ({ ...prev, [privateChatId]: 1 }));
                 
-                const isMuted = isGlobalMutedRef.current; 
+                const isMuted = localStorage.getItem('global_chat_muted') === 'true'; 
                 if (!isMuted) {
                     audioRef.current?.play().catch(e => console.warn("Audio play failed:", e));
                 }
@@ -397,14 +398,14 @@ const Sidebar: React.FC<{
                     {displayList.map(contact => (
                         <SidebarContact
                             key={contact.id}
-                            index={-1} // Not needed for non-virtualized
-                            style={{}}   // Not needed
+                            index={-1}
+                            style={{}}
                             data={{
                                 contacts: displayList as ChatContact[],
                                 activeChatId: '',
                                 unreadCounts: {},
                                 typingStatus: {},
-                                isGlobalMuted: false,
+                                isGlobalMuted,
                                 onlineUserIds,
                                 currentUser,
                                 handleContactClick,
@@ -417,7 +418,7 @@ const Sidebar: React.FC<{
                     <List
                         height={listHeight}
                         itemCount={contacts.length}
-                        itemSize={68} // h-10 (40px) + p-3 (1.5rem=24px) = 64px. 68px for spacing.
+                        itemSize={68}
                         width="100%"
                         itemData={{
                             contacts,

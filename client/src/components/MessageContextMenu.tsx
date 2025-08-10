@@ -1,6 +1,4 @@
-
-
-import React, { useEffect, RefObject, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export interface Action {
     label: string;
@@ -13,11 +11,21 @@ interface MessageContextMenuProps {
     y: number;
     onClose: () => void;
     actions: (Action | false | undefined)[];
-    menuRef: RefObject<HTMLDivElement>;
 }
 
-const MessageContextMenu: React.FC<MessageContextMenuProps> = ({ menuRef, x, y, onClose, actions }) => {
-    const [position, setPosition] = useState({ top: y, left: x });
+const MessageContextMenu: React.FC<MessageContextMenuProps> = ({ x, y, onClose, actions }) => {
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState({ top: y, left: x, opacity: 0 });
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                onClose();
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose]);
 
     useEffect(() => {
         if (menuRef.current) {
@@ -29,17 +37,15 @@ const MessageContextMenu: React.FC<MessageContextMenuProps> = ({ menuRef, x, y, 
             let newX = x;
             let newY = y;
             
-            // Adjust horizontally if it overflows right
-            if (x + menuWidth > screenWidth) {
+            if (x + menuWidth > screenWidth - 10) {
                 newX = x - menuWidth;
             }
             
-            // Adjust vertically if it overflows bottom
-            if (y + menuHeight > screenHeight) {
+            if (y + menuHeight > screenHeight - 10) {
                 newY = y - menuHeight;
             }
             
-            setPosition({ top: newY, left: newX });
+            setPosition({ top: newY, left: newX, opacity: 1 });
         }
     }, [x, y, menuRef]);
 
@@ -53,8 +59,8 @@ const MessageContextMenu: React.FC<MessageContextMenuProps> = ({ menuRef, x, y, 
     return (
         <div
             ref={menuRef}
-            className="fixed bg-white dark:bg-slate-700 rounded-lg shadow-xl z-[150] text-left overflow-hidden ring-1 ring-black/5 animate-fade-in-up py-1"
-            style={{ top: `${position.top}px`, left: `${position.left}px` }}
+            className="fixed bg-white dark:bg-slate-700 rounded-lg shadow-xl z-[150] text-left overflow-hidden ring-1 ring-black/5 animate-fade-in-up py-1 transition-opacity"
+            style={{ top: `${position.top}px`, left: `${position.left}px`, opacity: position.opacity }}
         >
             {validActions.map(({ label, action, isDestructive }) => (
                 <button

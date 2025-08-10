@@ -37,10 +37,19 @@ const loadVideo = (videoElement: HTMLVideoElement, src: string): Promise<HTMLVid
     });
 };
 
+const triggerDirectDownload = (videoUrl: string) => {
+    toast.success("Ваш браузер не поддерживает обработку видео. Начинается прямая загрузка.", { duration: 5000 });
+    const a = document.createElement('a');
+    a.href = videoUrl;
+    a.download = `bulik-original-${Date.now()}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+};
+
 
 /**
  * Processes a video circle for download with all custom branding.
- * This is the DEFINITIVE client-side implementation.
  */
 export const processVideoCircleForDownload = async (
     videoUrl: string,
@@ -53,6 +62,12 @@ export const processVideoCircleForDownload = async (
     let recorder: MediaRecorder | null = null;
     let videoObjectUrl: string | null = null;
 
+    // Fallback for browsers that don't support captureStream (e.g., Safari)
+    if (!canvas.captureStream) {
+        triggerDirectDownload(videoUrl);
+        return;
+    }
+
     const cleanup = () => {
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         if (video?.parentNode) document.body.removeChild(video);
@@ -63,10 +78,8 @@ export const processVideoCircleForDownload = async (
     };
 
     try {
-        // --- STAGE 1: Reliable Asset Loading ---
         if (onProgress) onProgress(1);
 
-        // Load Video
         const videoResponse = await fetch(videoUrl);
         if (!videoResponse.ok) throw new Error(`Failed to download video: ${videoResponse.statusText}`);
         const videoBlob = await videoResponse.blob();
@@ -74,35 +87,31 @@ export const processVideoCircleForDownload = async (
         video.muted = true;
         video.playsInline = true;
         video.preload = 'auto';
-        video.style.display = 'none'; // Keep hidden
+        video.style.display = 'none';
         document.body.appendChild(video);
         await loadVideo(video, videoObjectUrl);
 
-        // Load Logo using a more robust method (createImageBitmap)
         try {
-            // FIX: This now correctly fetches from the server /assets route, which is proxied.
             const logoResponse = await fetch('/assets/logo.png');
-            if (!logoResponse.ok) throw new Error(`Failed to download logo: ${logoResponse.statusText}`);
-            const logoBlob = await logoResponse.blob();
-            logoBitmap = await createImageBitmap(logoBlob);
+            if (logoResponse.ok) {
+                const logoBlob = await logoResponse.blob();
+                logoBitmap = await createImageBitmap(logoBlob);
+            }
         } catch (e) {
             console.warn("Could not load logo for watermark, proceeding without it.", e);
         }
 
-
-        // --- STAGE 2: Real-time Playback and Capture ---
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error("Could not get canvas context.");
         
         const FINAL_CANVAS_SIZE = 768;
-        const VIDEO_CIRCLE_SIZE = 680; // Make the circle much larger within the frame
+        const VIDEO_CIRCLE_SIZE = 680;
         canvas.width = FINAL_CANVAS_SIZE;
         canvas.height = FINAL_CANVAS_SIZE;
         const duration = video.duration;
 
         const handleTimeUpdate = () => {
             if (onProgress && video) {
-                // This is a more reliable way to track progress than using requestAnimationFrame
                 onProgress(Math.min(100, Math.round((video.currentTime / duration) * 100)));
             }
         };
@@ -145,16 +154,14 @@ export const processVideoCircleForDownload = async (
             const canvasCenter = FINAL_CANVAS_SIZE / 2;
             const videoRadius = VIDEO_CIRCLE_SIZE / 2;
 
-            // 1. Draw blurred video background
             ctx.save();
             ctx.filter = 'blur(24px)';
             ctx.drawImage(video, 0, 0, FINAL_CANVAS_SIZE, FINAL_CANVAS_SIZE);
             ctx.filter = 'none';
-            ctx.fillStyle = 'rgba(0,0,0,0.3)'; // Darken it a bit
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
             ctx.fillRect(0, 0, FINAL_CANVAS_SIZE, FINAL_CANVAS_SIZE);
             ctx.restore();
 
-            // 2. Draw the video frame as a circle in the center
             ctx.save();
             ctx.beginPath();
             ctx.arc(canvasCenter, canvasCenter, videoRadius, 0, Math.PI * 2, true);
@@ -165,10 +172,9 @@ export const processVideoCircleForDownload = async (
             ctx.drawImage(video, sx, sy, vidSize, vidSize, canvasCenter - videoRadius, canvasCenter - videoRadius, VIDEO_CIRCLE_SIZE, VIDEO_CIRCLE_SIZE);
             ctx.restore();
 
-            // 3. Draw the rotating text "вплотную" (very close) to the circle
             const text = "Бульк";
             const numberOfTexts = 5;
-            const textRadius = videoRadius + 38; // Position text close to the new, larger circle
+            const textRadius = videoRadius + 38;
             const rotationSpeed = 8;
             const baseAngle = (video.currentTime / rotationSpeed) * Math.PI * 2;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
@@ -182,12 +188,11 @@ export const processVideoCircleForDownload = async (
                 const y = canvasCenter + textRadius * Math.sin(currentAngle);
                 ctx.save();
                 ctx.translate(x, y);
-                ctx.rotate(currentAngle + Math.PI / 2); // Rotate text to be tangent
+                ctx.rotate(currentAngle + Math.PI / 2);
                 ctx.fillText(text, 0, 0);
                 ctx.restore();
             }
 
-            // 4. Draw the circular logo watermark
             if (logoBitmap) {
                 const logoSize = 80;
                 const logoRadius = logoSize / 2;
@@ -201,8 +206,6 @@ export const processVideoCircleForDownload = async (
                 ctx.restore();
             }
             
-            // Progress reporting is now handled by the 'timeupdate' event listener for better accuracy.
-            
             animationFrameId = requestAnimationFrame(processFrame);
         };
         
@@ -212,13 +215,15 @@ export const processVideoCircleForDownload = async (
             }
         };
         
-        video.currentTime = 0; // Ensure playback starts from the beginning
+        video.currentTime = 0;
         await video.play();
         recorder.start();
         animationFrameId = requestAnimationFrame(processFrame);
 
     } catch (error) {
         cleanup();
-        throw error; // Re-throw to be caught by the caller
+        // If processing fails for any reason, offer direct download as a fallback.
+        triggerDirectDownload(videoUrl);
+        throw error; // Re-throw for console logging
     }
 };

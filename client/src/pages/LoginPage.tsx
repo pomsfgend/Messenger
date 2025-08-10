@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
+const { Link, useNavigate } = ReactRouterDOM;
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../hooks/useI18n';
 import { translateApiError } from '../i18n';
@@ -31,7 +32,7 @@ const LoginPage: React.FC = () => {
     const { login, googleLogin, anonymousLogin, phoneRequestCode, phoneLogin, telegramLogin } = useAuth();
     const { t } = useI18n();
     const { mode } = useTheme();
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
     const telegramContainerRef = useRef<HTMLDivElement>(null);
 
     const handleAuthError = useCallback((error: any) => {
@@ -226,9 +227,9 @@ const LoginPage: React.FC = () => {
                 />
             )}
             <header className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center w-full">
-                <ReactRouterDOM.Link to="/" className="z-20">
+                <Link to="/" className="z-20">
                     <AppLogo imgClassName="h-16 w-16"/>
-                </ReactRouterDOM.Link>
+                </Link>
                 <h1 className="absolute left-1/2 -translate-x-1/2 text-2xl sm:text-3xl font-bold tracking-wider auth-neon-title">
                     Мессенджер Бульк
                 </h1>
@@ -276,9 +277,9 @@ const LoginPage: React.FC = () => {
 
                     <p className="text-center text-sm text-slate-500 dark:text-slate-400 pt-2">
                         {t('login.noAccount')}{' '}
-                        <ReactRouterDOM.Link to="/register" className="font-medium text-[rgb(var(--color-accent-primary))] hover:text-[rgb(var(--color-accent-secondary))] transition-colors">
+                        <Link to="/register" className="font-medium text-[rgb(var(--color-accent-primary))] hover:text-[rgb(var(--color-accent-secondary))] transition-colors">
                             {t('login.signUp')}
-                        </ReactRouterDOM.Link>
+                        </Link>
                     </p>
                 </div>
             </div>

@@ -11,6 +11,7 @@ import ViewProfileModal from './ViewProfileModal';
 import MediaUploadPreviewModal from './MediaUploadPreviewModal';
 import MessageContextMenu, { Action } from './MessageContextMenu';
 import * as ReactRouterDOM from 'react-router-dom';
+const { useNavigate } = ReactRouterDOM;
 import MediaViewerModal from './MediaViewerModal';
 import useAutosizeTextArea from '../hooks/useAutosizeTextArea';
 import GlobalChatInfoModal from './GlobalChatInfoModal';
@@ -20,11 +21,11 @@ import MessageBubble from './MessageBubble';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { useTheme } from '../hooks/useTheme';
 import VideoRecorderModal from './VideoRecorderModal';
-import { processVideoCircleForDownload } from '../utils/mediaProcessor';
-import { FaVideo, FaMicrophone, FaMicrophoneSlash, FaVideoSlash, FaPhoneSlash } from 'react-icons/fa';
+import { FaVideo, FaMicrophone, FaEllipsisV, FaBell, FaBellSlash, FaSmile } from 'react-icons/fa';
 import { useCall } from '../hooks/useCall';
 import IncomingCallToast from './IncomingCallToast';
 import { isMobile } from 'react-device-detect';
+import ForwardMessageModal from './ForwardMessageModal';
 
 
 const AudioRecorder: React.FC<{ onSend: (file: File) => void; onCancel: () => void; }> = ({ onSend, onCancel }) => {
@@ -125,7 +126,6 @@ const AudioRecorder: React.FC<{ onSend: (file: File) => void; onCancel: () => vo
 };
 
 const formatLastSeen = (lastSeen: string | null | undefined, t: (key: string, options?: any) => string): string => {
-    // FIX: Correctly handle 'recent' status from server privacy filter
     if (lastSeen === 'recent') return t('chat.lastSeenRecent');
     if (!lastSeen) return t('chat.online');
     
@@ -137,7 +137,6 @@ const formatLastSeen = (lastSeen: string | null | undefined, t: (key: string, op
     if (diffSeconds < 3600) return t('time.minutesAgo', { count: Math.floor(diffSeconds / 60) });
     if (diffSeconds < 86400) return t('time.hoursAgo', { count: Math.floor(diffSeconds / 3600) });
     
-    // For dates older than a day, show date and time
     return `${t('chat.lastSeen')} ${lastSeenDate.toLocaleString()}`;
 };
 
@@ -151,7 +150,7 @@ const ChatWindow: React.FC<{
     const { socket } = useSocket();
     const { t } = useI18n();
     const { mode } = useTheme();
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatUsers, setChatUsers] = useState<Record<string, User>>({});
@@ -178,6 +177,7 @@ const ChatWindow: React.FC<{
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, message: Message } | null>(null);
     const [mediaViewerState, setMediaViewerState] = useState<{ items: Message[], startIndex: number } | null>(null);
+    const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
     
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
@@ -188,28 +188,25 @@ const ChatWindow: React.FC<{
     
     const [isMuted, setIsMuted] = useState(false);
     const [temporarilyDeleted, setTemporarilyDeleted] = useState<Set<string>>(new Set());
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
-    const contextMenuRef = useRef<HTMLDivElement>(null);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
+    const chatMenuRef = useRef<HTMLDivElement>(null);
 
     const hasScrolledInitially = useRef(false);
     useAutosizeTextArea(textAreaRef.current, newMessage);
     
     const messagesRef = useRef(messages);
-    useEffect(() => {
-        messagesRef.current = messages;
-    }, [messages]);
+    useEffect(() => { messagesRef.current = messages; }, [messages]);
 
-    const call = useCall({
-        localVideoRef,
-        remoteVideoRef,
-        chatId: chatId || null
-    });
+    const call = useCall({ localVideoRef, remoteVideoRef, chatId: chatId || null });
     
     useEffect(() => {
         if (call.incomingCall) {
@@ -221,7 +218,18 @@ const ChatWindow: React.FC<{
         }
     }, [call.incomingCall, call.acceptCall, call.rejectCall]);
 
-
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (showEmojiPicker && emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+            if (isChatMenuOpen && chatMenuRef.current && !chatMenuRef.current.contains(event.target as Node)) {
+                setIsChatMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showEmojiPicker, isChatMenuOpen]);
     
     const resetState = useCallback(() => {
         setMessages([]);
@@ -255,16 +263,34 @@ const ChatWindow: React.FC<{
             setHasMore(newHasMore);
             
             if (isInitial) {
-                const partnerId = chatId !== GLOBAL_CHAT_ID ? chatId.split('-').find(id => id !== currentUser!.id) : undefined;
-                if (partnerId && users[partnerId]) {
-                    const partnerData = users[partnerId] as ChatContact;
-                     const myChats = await api.getMyChats();
-                     const chatContact = myChats.find(c => c.id === partnerId);
-                     setIsMuted(chatContact?.is_muted ?? false);
-
-                    setPartner({ ...partnerData, isOnline: !partnerData.lastSeen });
-                } else if (chatId === GLOBAL_CHAT_ID) {
+                if (chatId === GLOBAL_CHAT_ID) {
                     setIsMuted(localStorage.getItem('global_chat_muted') === 'true');
+                    setPartner(null); // Explicitly clear partner for global chat
+                } else {
+                    const partnerId = chatId.split('-').find(id => id !== currentUser!.id);
+                    if (partnerId && users[partnerId]) {
+                        const partnerData = users[partnerId] as ChatContact;
+                        // Fetch the full contact list to get the mute status
+                        const myChats = await api.getMyChats();
+                        const chatContact = myChats.find(c => c.id === partnerId);
+                        setIsMuted(chatContact?.is_muted ?? false);
+                        // Ensure partner state is set correctly even if name is missing
+                        setPartner({
+                            ...partnerData,
+                            name: partnerData.name || partnerData.uniqueId || 'User',
+                            isOnline: !partnerData.lastSeen
+                        });
+                    } else if (partnerId) {
+                        // Handle case where user might not be in the initial fetch (e.g., new chat)
+                        const profile = await api.getProfileByUniqueId(partnerId);
+                        setChatUsers(prev => ({ ...prev, [profile.id]: profile }));
+                        setPartner({
+                           ...profile,
+                           name: profile.name || profile.uniqueId || 'User',
+                           isOnline: !profile.lastSeen,
+                           type: 'private'
+                        });
+                    }
                 }
             }
         } catch (e) {
@@ -359,26 +385,25 @@ const ChatWindow: React.FC<{
             }
         };
         
-        const handleMessageReactionUpdated = (data: { messageId: string; reactions: ReactionMap }) => {
-            if (messagesRef.current.some(m => m.id === data.messageId)) {
+        const handleMessageReactionUpdated = (data: { messageId: string; reactions: ReactionMap; chatId: string }) => {
+            if (data.chatId === chatId) {
                 setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, reactions: data.reactions } : m));
             }
         };
-
-        const handleMessagesDeleted = (data: { messageIds: string[], chatId: string }) => {
+        const handleMessagesDeleted = (data: { messageIds: string[]; chatId: string; }) => {
             if (data.chatId === chatId) {
                 setMessages(prev => prev.filter(m => !data.messageIds.includes(m.id)));
             }
         };
         
-        const handleMessageDeleted = (msg: { id: string; chatId: string }) => {
-            if (msg.chatId === chatId) {
-                setTemporarilyDeleted(prev => new Set(prev).add(msg.id));
+        const handleMessageDeleted = (data: { id: string, chatId: string }) => {
+            if (data.chatId === chatId) {
+                setTemporarilyDeleted(prev => new Set(prev).add(data.id));
                 setTimeout(() => {
-                    setMessages(prev => prev.filter(m => m.id !== msg.id));
+                    setMessages(prev => prev.filter(m => m.id !== data.id));
                     setTemporarilyDeleted(prev => {
                         const newSet = new Set(prev);
-                        newSet.delete(msg.id);
+                        newSet.delete(data.id);
                         return newSet;
                     });
                 }, 5000);
@@ -482,7 +507,7 @@ const ChatWindow: React.FC<{
             id: tempId, tempId, chatId, senderId: currentUser!.id,
             content: caption || file.name, timestamp: new Date().toISOString(),
             type: typeOverride || (file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file'),
-            mediaUrl: URL.createObjectURL(file), // for local preview
+            mediaUrl: URL.createObjectURL(file), 
             mediaMimetype: file.type, isEdited: false, isDeleted: false,
         };
 
@@ -509,7 +534,6 @@ const ChatWindow: React.FC<{
 
     }, [chatId, currentUser, handleSendMessage, t]);
     
-    // Omitted other handlers for brevity (they are correct)
     const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setNewMessage(e.target.value);
         if (socket && chatId && !typingTimeoutRef.current) {
@@ -533,7 +557,7 @@ const ChatWindow: React.FC<{
         const file = e.target.files?.[0];
         if (!file) return;
         setMediaPreview({ file, type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file' });
-        e.target.value = ''; // Reset file input
+        e.target.value = ''; 
     };
 
     const handleSaveEdit = async () => {
@@ -547,66 +571,106 @@ const ChatWindow: React.FC<{
         }
     };
     
-    // ... all other handlers ...
+    const handleToggleMute = async () => {
+        const newMutedState = !isMuted;
+        try {
+            if (chatId === GLOBAL_CHAT_ID) {
+                localStorage.setItem('global_chat_muted', String(newMutedState));
+                // Manually dispatch a storage event to notify other tabs
+                window.dispatchEvent(new StorageEvent('storage', { key: 'global_chat_muted', newValue: String(newMutedState) }));
+                setIsMuted(newMutedState);
+            } else if (partner) {
+                await api.updateChatState(chatId!, { is_muted: newMutedState });
+                setIsMuted(newMutedState);
+            }
+            toast.success(newMutedState ? t('chat.mute') : t('chat.unmute'));
+        } catch {
+            toast.error('Failed to update mute status');
+        }
+        setIsChatMenuOpen(false);
+    };
+
+    const onContextMenuAction = (action: Action) => {
+        action.action();
+        setContextMenu(null);
+    };
+
+    const getContextMenuActions = (message: Message): (Action | false | undefined)[] => [
+        { label: t('chat.react'), action: () => setIsReacting(message.id) },
+        { label: t('chat.forward'), action: () => setForwardingMessage(message) },
+        message.senderId === currentUser?.id && { label: t('common.edit'), action: () => {
+            setEditingMessage(message);
+            setNewMessage(message.content);
+            textAreaRef.current?.focus();
+        }},
+        (message.senderId === currentUser?.id || ['admin', 'moderator'].includes(currentUser?.role || '')) && {
+            label: t('common.delete'),
+            isDestructive: true,
+            action: async () => {
+                try {
+                    await api.deleteMessage(message.id);
+                } catch {
+                    toast.error(t('toast.deleteMessageError'));
+                }
+            }
+        }
+    ];
 
     const renderChatContent = () => {
-        if (isLoading) {
-            return <div className="flex-1 flex justify-center items-center"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div></div>;
-        }
-        if (error) {
-            return <div className="flex-1 flex justify-center items-center text-red-500">{error}</div>;
-        }
+        if (isLoading) return <div className="flex-1 flex justify-center items-center"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div></div>;
+        if (error) return <div className="flex-1 flex justify-center items-center text-red-500">{error}</div>;
+        
         return (
-            <div ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-6">
-                {messages.map((msg, index) => (
-                    <div key={msg.id} className={`flex ${msg.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
-                        <MessageBubble
-                            message={msg}
-                            isOwn={msg.senderId === currentUser?.id}
-                            sender={chatUsers[msg.senderId]}
-                            isPrivateChat={chatId !== GLOBAL_CHAT_ID}
-                            uploadProgress={uploadingFiles[msg.tempId!]?.progress}
-                            onCancelUpload={() => uploadingFiles[msg.tempId!]?.cancel()}
-                            onViewProfile={setViewingProfile}
-                            onContextMenu={(e, m) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, message: m }); }}
-                            onMediaClick={(m) => {
-                                const mediaItems = messages.filter(i => i.type === 'image' || i.type === 'video' || i.type === 'video_circle');
-                                const startIndex = mediaItems.findIndex(i => i.id === m.id);
-                                if(startIndex > -1) setMediaViewerState({ items: mediaItems, startIndex });
-                            }}
-                            onToggleSelect={console.log}
-                            selectionMode={selectionMode}
-                            isSelected={selectedMessages.has(msg.id)}
-                            isReacting={isReacting === msg.id}
-                            onReactionHandled={() => setIsReacting(null)}
-                            isTemporarilyDeleted={temporarilyDeleted.has(msg.id)}
-                        />
-                    </div>
+            <div ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
+                {messages.map((msg) => (
+                    <MessageBubble
+                        key={msg.id}
+                        message={msg}
+                        isOwn={msg.senderId === currentUser?.id}
+                        sender={chatUsers[msg.senderId]}
+                        isPrivateChat={chatId !== GLOBAL_CHAT_ID}
+                        uploadProgress={uploadingFiles[msg.tempId!]?.progress}
+                        onCancelUpload={() => uploadingFiles[msg.tempId!]?.cancel()}
+                        onViewProfile={setViewingProfile}
+                        onContextMenu={(e, m) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, message: m }); }}
+                        onMediaClick={(m) => {
+                            const mediaItems = messages.filter(i => i.type === 'image' || i.type === 'video' || i.type === 'video_circle');
+                            const startIndex = mediaItems.findIndex(i => i.id === m.id);
+                            if(startIndex > -1) setMediaViewerState({ items: mediaItems, startIndex });
+                        }}
+                        onToggleSelect={console.log}
+                        selectionMode={selectionMode}
+                        isSelected={selectedMessages.has(msg.id)}
+                        isReacting={isReacting === msg.id}
+                        onReactionHandled={() => setIsReacting(null)}
+                        isTemporarilyDeleted={temporarilyDeleted.has(msg.id)}
+                    />
                 ))}
-                <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} className="h-1" />
             </div>
         );
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 min-w-0">
+        <div className="flex flex-col h-[var(--app-height)] bg-slate-100 dark:bg-slate-900 min-w-0">
             {viewingProfile && <ViewProfileModal user={viewingProfile} onClose={() => setViewingProfile(null)} onStartChat={(userId) => { setViewingProfile(null); navigate(`/app/chat/${[currentUser!.id, userId].sort().join('-')}`)}} />}
             {mediaPreview && <MediaUploadPreviewModal item={mediaPreview} onClose={() => setMediaPreview(null)} onSend={handleSendFile} />}
             {isDeleteConfirmOpen && <ConfirmationModal isOpen={isDeleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} onConfirm={()=>{}} title="Delete Messages" message={`Are you sure you want to delete ${selectedMessages.size} messages?`} />}
-            {contextMenu && <MessageContextMenu menuRef={contextMenuRef} x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} actions={[]} />}
+            {contextMenu && <MessageContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} actions={getContextMenuActions(contextMenu.message)} />}
             {mediaViewerState && <MediaViewerModal items={mediaViewerState.items} startIndex={mediaViewerState.startIndex} onClose={() => setMediaViewerState(null)} />}
+            {forwardingMessage && <ForwardMessageModal messageToForward={forwardingMessage} sender={chatUsers[forwardingMessage.senderId]} onClose={() => setForwardingMessage(null)} />}
             {isRecordingVideo && <VideoRecorderModal onClose={() => setIsRecordingVideo(false)} onSend={(file) => handleSendFile(file, '', 'video_circle')} />}
             {isChatInfoModalOpen && <GlobalChatInfoModal onClose={() => setIsChatInfoModalOpen(false)} />}
             
-            <header className="flex-shrink-0 flex items-center justify-between p-3 border-b border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md">
+            <header className="flex-shrink-0 flex items-center justify-between p-3 border-b border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md z-10">
                 <div className="flex items-center gap-3 min-w-0">
                     {!isStandalone && <button onClick={onToggleSidebar} className="lg:hidden p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg></button>}
                     
-                    {partner ? (
+                    {chatId !== GLOBAL_CHAT_ID && partner ? (
                         <div className="flex items-center gap-3 cursor-pointer min-w-0" onClick={() => setViewingProfile(partner)}>
                             <Avatar user={{...partner, isOnline: !partner.lastSeen}} />
                             <div className="min-w-0">
-                                <p className="font-semibold truncate">{partner.name}</p>
+                                <p className="font-semibold truncate">{partner.name || partner.uniqueId}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{Array.from(typingUsers).length > 0 ? t('chat.typing') : formatLastSeen(partner.lastSeen, t)}</p>
                             </div>
                         </div>
@@ -617,8 +681,19 @@ const ChatWindow: React.FC<{
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 relative">
                     {partner && <button onClick={() => call.startCall(partner)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaVideo/></button>}
+                    <div ref={chatMenuRef} className="relative">
+                         <button onClick={() => setIsChatMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaEllipsisV/></button>
+                         {isChatMenuOpen && (
+                             <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-700 rounded-lg shadow-xl z-20 py-1">
+                                 <button onClick={handleToggleMute} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600">
+                                     {isMuted ? <FaBell/> : <FaBellSlash/>}
+                                     <span>{isMuted ? t('chat.unmute') : t('chat.mute')}</span>
+                                 </button>
+                             </div>
+                         )}
+                    </div>
                 </div>
             </header>
 
@@ -645,6 +720,21 @@ const ChatWindow: React.FC<{
                                 className="w-full bg-slate-200 dark:bg-slate-700 border-2 border-transparent rounded-2xl p-3 pr-12 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-colors resize-none"
                                 rows={1}
                             />
+                             <button 
+                                onClick={(e) => { e.preventDefault(); setShowEmojiPicker(p => !p); }} 
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-400"
+                             >
+                                <FaSmile className="w-5 h-5"/>
+                             </button>
+                             {showEmojiPicker && (
+                                <div ref={emojiPickerRef} className="absolute bottom-full left-0 sm:right-0 sm:left-auto mb-2 z-50">
+                                   <EmojiPicker 
+                                      onEmojiClick={(e) => setNewMessage(p => p + e.emoji)} 
+                                      theme={mode === 'dark' ? Theme.DARK : Theme.LIGHT}
+                                      searchDisabled={true}
+                                   />
+                                </div>
+                            )}
                         </div>
                         
                         {newMessage.trim() ? (

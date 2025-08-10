@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
+const { Link } = ReactRouterDOM;
 import './LandingPage.css';
 import * as api from '../services/api';
 import { 
@@ -197,7 +198,7 @@ const LandingPage: React.FC = () => {
                     <h1 className="neon-text">ПУТЬ В <span className="neon-purple">НОВЫЙ МИР</span></h1>
                     <p>Бульк - полностью анонимный мессенджер. Ни слежки, ни метаданных, ни цифровых следов.</p>
                     <div className="hero-buttons">
-                        <ReactRouterDOM.Link to="/login" className="btn btn-primary">НАЧАТЬ АНОНИМНЫЙ ЧАТ</ReactRouterDOM.Link>
+                        <Link to="/login" className="btn btn-primary">НАЧАТЬ АНОНИМНЫЙ ЧАТ</Link>
                         <a href="#features" onClick={handleSmoothScroll} className="btn btn-secondary">УЗНАТЬ БОЛЬШЕ</a>
                     </div>
                 </div>
@@ -356,7 +357,7 @@ const LandingPage: React.FC = () => {
                     <h2 className="neon-text" style={{fontSize: 'clamp(2rem, 4vw, 3rem)', marginBottom: '25px'}}>Готовы к <span className="neon-purple">настоящей свободе</span> общения?</h2>
                     <p style={{fontSize: 'clamp(1.1rem, 2vw, 1.4rem)', marginBottom: '30px'}}>Присоединяйтесь к тысячам пользователей, которые выбрали приватность без компромиссов</p>
                     <div className="cta-buttons">
-                        <ReactRouterDOM.Link to="/login" className="btn btn-primary btn-icon"><FaComments /> НАЧАТЬ ЧАТ</ReactRouterDOM.Link>
+                        <Link to="/login" className="btn btn-primary btn-icon"><FaComments /> НАЧАТЬ ЧАТ</Link>
                         <a href="https://t.me/authorizerprogaming_bot" className="btn btn-secondary btn-icon"><FaTelegram /> ОБРАТНАЯ СВЯЗЬ</a>
                         <a href="https://t.me/bulkehead" className="btn btn-secondary btn-icon"><FaTelegram /> НАШ КАНАЛ</a>
                     </div>
