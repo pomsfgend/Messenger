@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import * as api from '../services/api';
 import type { ChatContact, User, Message } from '../types';
@@ -49,7 +49,7 @@ const Sidebar: React.FC<{
 }> = ({ activeChatId, onSidebarClose }) => {
     const { currentUser, logout, updateCurrentUser } = useAuth();
     const { t } = useI18n();
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
     const { socket } = useSocket();
     const [contacts, setContacts] = useState<ChatContact[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -108,7 +108,7 @@ const Sidebar: React.FC<{
             const userContacts: ChatContact[] = usersFromApi.map(user => {
                 const chatId = [currentUser.id, user.id].sort().join('-');
                 if (user.unreadCount && user.unreadCount > 0) unreadMap[chatId] = user.unreadCount;
-                return { ...user, type: 'private', isOnline: user.lastSeen === null };
+                return { ...user, type: 'private' };
             });
             
             setUnreadCounts(prev => ({...prev, ...unreadMap}));
@@ -277,6 +277,7 @@ const Sidebar: React.FC<{
         };
         
         const handleChatStateUpdated = (data: { chatId: string, is_muted: boolean }) => {
+            if (data.chatId === GLOBAL_CHAT_ID) return; // Global chat mute is handled by local storage
             setContacts(prev => prev.map(c => {
                 if (c.id === GLOBAL_CHAT_ID) return c;
                 const contactChatId = [currentUser!.id, c.id].sort().join('-');

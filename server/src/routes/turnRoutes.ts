@@ -1,14 +1,15 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import Turn from 'node-turn';
-import { config } from '../config';
 
 const router = express.Router();
 
 router.get('/', (req: Request, res: Response) => {
     const turnServer: Turn = req.app.get('turnServer');
-    if (!turnServer) {
-        return res.status(503).json({ message: "TURN server is not available." });
+    const publicIp: string = req.app.get('publicIp');
+
+    if (!turnServer || !publicIp) {
+        return res.status(503).json({ message: "TURN server is not available or IP not configured." });
     }
     
     // Generate temporary credentials for the client
@@ -24,7 +25,7 @@ router.get('/', (req: Request, res: Response) => {
     }, 86400 * 1000);
     
     const iceServer: RTCIceServer = {
-        urls: `turn:${config.TURN_PUBLIC_IP}:3478`,
+        urls: `turn:${publicIp}:3478`,
         username: username,
         credential: password,
     };

@@ -10,7 +10,7 @@ import Avatar from './Avatar';
 import ViewProfileModal from './ViewProfileModal';
 import MediaUploadPreviewModal from './MediaUploadPreviewModal';
 import MessageContextMenu, { Action } from './MessageContextMenu';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import MediaViewerModal from './MediaViewerModal';
 import useAutosizeTextArea from '../hooks/useAutosizeTextArea';
 import GlobalChatInfoModal from './GlobalChatInfoModal';
@@ -149,7 +149,7 @@ const ChatWindow: React.FC<{
     const { socket } = useSocket();
     const { t } = useI18n();
     const { mode } = useTheme();
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatUsers, setChatUsers] = useState<Record<string, User>>({});
@@ -225,10 +225,13 @@ const ChatWindow: React.FC<{
             if (isChatMenuOpen && chatMenuRef.current && !chatMenuRef.current.contains(event.target as Node)) {
                 setIsChatMenuOpen(false);
             }
+            if (contextMenu) {
+                setContextMenu(null);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showEmojiPicker, isChatMenuOpen]);
+    }, [showEmojiPicker, isChatMenuOpen, contextMenu]);
     
     const resetState = useCallback(() => {
         setMessages([]);
@@ -448,6 +451,10 @@ const ChatWindow: React.FC<{
         socket.on('messagesRead', handleMessagesRead);
         
         socket.on('chatStateUpdated', (data: { chatId: string, is_muted: boolean }) => {
+            if (chatId === GLOBAL_CHAT_ID) {
+                // For global chat, we check local storage, this event is for private.
+                return;
+            }
             if (data.chatId === chatId) {
                 setIsMuted(data.is_muted);
             }

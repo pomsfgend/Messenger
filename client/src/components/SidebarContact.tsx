@@ -50,7 +50,9 @@ const SidebarContact: React.FC<SidebarContactProps> = ({ index, style, data }) =
                  const key = `messageType.${contact.lastMessageType}` as any;
                  return `${prefix}[${t(key, {fileName: contact.lastMessageContent})}]`;
             }
-            return `${prefix}${contact.lastMessageContent}`;
+            // Ensure content is treated as a string to avoid rendering '0' or 'false'
+            const content = String(contact.lastMessageContent);
+            return `${prefix}${content}`;
         }
         return contact.id === GLOBAL_CHAT_ID ? t('sidebar.globalChatDesc') : t('sidebar.dm');
     };

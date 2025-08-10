@@ -109,10 +109,10 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         ]);
         encryptionKeys.current = { sendKey, receiveKey };
         
-        const senders = pc.getSenders();
-        for (const sender of senders) {
-            if (sender.track) {
-                const senderStreams = (sender as any).createEncodedStreams();
+        const transceivers = pc.getTransceivers();
+        for (const transceiver of transceivers) {
+            if (transceiver.sender.track) {
+                const senderStreams = (transceiver.sender as any).createEncodedStreams();
                 senderStreams.readable
                     .pipeThrough(new TransformStream({
                         transform: async (encodedFrame, controller) => {
@@ -131,17 +131,14 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
                     }))
                     .pipeTo(senderStreams.writable);
             }
-        }
-        
-        const receivers = pc.getReceivers();
-        for (const receiver of receivers) {
-            if (receiver.track) {
-                 const receiverStreams = (receiver as any).createEncodedStreams();
+             if (transceiver.receiver.track) {
+                 const receiverStreams = (transceiver.receiver as any).createEncodedStreams();
                  receiverStreams.readable
                     .pipeThrough(new TransformStream({
                         transform: async (encodedFrame, controller) => {
                             try {
                                 const packet = new Uint8Array(encodedFrame.data);
+                                if (packet.length < IV_LENGTH) return; // Not an encrypted packet, drop it
                                 const iv = packet.slice(0, IV_LENGTH);
                                 const ciphertext = packet.slice(IV_LENGTH);
                                 const decryptedData = await crypto.subtle.decrypt(
@@ -152,7 +149,9 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
                                 encodedFrame.data = decryptedData;
                                 controller.enqueue(encodedFrame);
                             } catch (e) {
-                                console.error("Decryption failed:", e);
+                                // Decryption can fail for various reasons (key mismatch, corrupted packet).
+                                // We drop the frame by not enqueueing it.
+                                console.error("Decryption failed for a frame:", e);
                             }
                         }
                     }))

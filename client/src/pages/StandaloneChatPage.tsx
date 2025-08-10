@@ -1,15 +1,15 @@
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useParams, Navigate } from 'react-router-dom';
 import ChatWindow from '../components/ChatWindow';
 import ParticleBackground from '../components/ParticleBackground';
 
 const StandaloneChatPage: React.FC = () => {
-    const { chatId } = ReactRouterDOM.useParams<{ chatId: string }>();
+    const { chatId } = useParams<{ chatId: string }>();
 
     if (!chatId) {
         // This case should ideally not happen if routing is correct.
         // Redirecting to the main app is a safe fallback.
-        return <ReactRouterDOM.Navigate to="/app" replace />;
+        return <Navigate to="/app" replace />;
     }
 
     return (

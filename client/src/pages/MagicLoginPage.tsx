@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import * as api from '../services/api';
 
 const MagicLoginPage: React.FC = () => {
-    const { token } = ReactRouterDOM.useParams<{ token: string }>();
-    const navigate = ReactRouterDOM.useNavigate();
+    const { token } = useParams<{ token: string }>();
+    const navigate = useNavigate();
     const { updateCurrentUser } = useAuth();
     const [status, setStatus] = useState('Logging you in...');
 

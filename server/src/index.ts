@@ -59,6 +59,25 @@ app.use(express.urlencoded({ extended: true }));
 // Serve public assets
 app.use('/assets', express.static(path.join(__dirname, '..', 'assets')));
 
+const getPublicIp = (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        https.get('https://api.ipify.org?format=json', (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    const parsed = JSON.parse(data);
+                    resolve(parsed.ip);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }).on('error', (err) => {
+            reject(err);
+        });
+    });
+};
+
 
 const startServer = async () => {
     try {
@@ -98,6 +117,12 @@ const startServer = async () => {
             server = http.createServer(app);
         }
 
+        const publicIp = await getPublicIp().catch(err => {
+            console.error("🔴 FAILED to fetch public IP. TURN server may not work correctly over the internet.", err.message);
+            return config.TURN_PUBLIC_IP; // Fallback to config
+        });
+        console.log(`✅ Public IP detected: ${publicIp}. Using for TURN server.`);
+
         const turnServer = new Turn({
             authMech: 'long-term',
             credentials: {
@@ -106,11 +131,12 @@ const startServer = async () => {
             listeningPort: 3478,
             minPort: 50000,
             maxPort: 50100,
-            externalIps: config.TURN_PUBLIC_IP,
+            externalIps: publicIp,
         });
         turnServer.start();
         console.log("✅ TURN server started on port 3478.");
         app.set('turnServer', turnServer);
+        app.set('publicIp', publicIp); // Store for routes
 
         const io = new Server(server, {
             cors: {

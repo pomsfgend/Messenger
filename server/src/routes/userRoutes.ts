@@ -62,7 +62,7 @@ router.get('/me/chats', async (req: Request, res: Response) => {
             )
             SELECT
                 p.id, p.name, p.username, p.uniqueId, p.avatar_url as avatarUrl, p.last_seen as lastSeen,
-                CASE WHEN p.last_seen IS NULL THEN 1 ELSE 0 END as isOnline,
+                (p.last_seen IS NULL) as isOnline,
                 p.profile_color, p.message_color, p.createdAt,
                 lm.content as lastMessageContent,
                 lm.senderId as lastMessageSenderId,
@@ -82,8 +82,10 @@ router.get('/me/chats', async (req: Request, res: Response) => {
             WHERE p.id != ?
             ORDER BY lm.timestamp DESC;
         `, [userId, userId, `${userId}-%`, `%-`+userId, userId, userId, userId, userId, userId, userId]);
+        
+        const chatsWithBooleanOnline = chats.map(c => ({...c, isOnline: !!c.isOnline}));
+        res.json(chatsWithBooleanOnline);
 
-        res.json(chats);
     } catch (error) {
         console.error("Failed to get chats:", error);
         res.status(500).json({ message: 'Failed to fetch chats.' });

@@ -6,7 +6,7 @@ import { useI18n } from '../hooks/useI18n';
 import ThemeSelector from './ThemeSelector';
 import { useTheme } from '../hooks/useTheme';
 import Enable2FAModal from './Enable2FAModal';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useDraggable } from '../hooks/useDraggable';
 import { useResizable } from '../hooks/useResizable';
 
@@ -45,7 +45,7 @@ const SettingsModal: React.FC<Props> = ({ onClose }) => {
     const { currentUser, updateCurrentUser, logout, refreshSession } = useAuth();
     const { t, language, setLanguage } = useI18n();
     const { mode, setMode } = useTheme();
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('privacy');
     const [loading, setLoading] = useState(false);
     const [isEnable2FAModalOpen, setEnable2FAModalOpen] = useState(false);
