@@ -12,9 +12,6 @@ import AppLogo from '../components/AppLogo';
 import * as api from '../services/api';
 import { clientConfig } from '../config';
 
-declare global {
-    interface Window { Telegram: any; onTelegramAuth: (user: any) => void; }
-}
 
 const LoginPage: React.FC = () => {
     const [loginType, setLoginType] = useState<'default' | 'phone'>('default');

@@ -1,4 +1,5 @@
-import express, { Router, Request, Response, NextFunction } from 'express';
+import express, { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { getDb } from '../db';
 import { isModeratorOrAdmin } from '../auth';
 import fs from 'fs/promises';

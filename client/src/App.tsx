@@ -80,9 +80,7 @@ const App: React.FC = () => {
         }}
       />
       <TelegramAuthModal />
-      <ReactRouterDOM.BrowserRouter>
-        <AppRoutes />
-      </ReactRouterDOM.BrowserRouter>
+      <AppRoutes />
     </>
   );
 };

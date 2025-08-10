@@ -49,7 +49,7 @@ export const CallInterface: React.FC = () => {
     // Call timer
     useEffect(() => {
         if (callStatus === 'in-call' && !callTimer) {
-            const timer = setInterval(() => {
+            const timer = window.setInterval(() => {
                 setCallTime(prev => prev + 1);
             }, 1000);
             setCallTimer(timer);
@@ -67,7 +67,7 @@ export const CallInterface: React.FC = () => {
     // Simulate connection quality
     useEffect(() => {
         if (callStatus === 'in-call') {
-            qualityTimerRef.current = setInterval(() => {
+            qualityTimerRef.current = window.setInterval(() => {
                 // In a real app, this would use the WebRTC statistics API
                 const simulatedQuality = Math.max(30, Math.floor(Math.random() * 100));
                 setConnectionQuality(simulatedQuality);

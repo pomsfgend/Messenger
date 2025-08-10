@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import * as api from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import * as ReactRouterDOM from 'react-router-dom';
 
 export const TelegramAuthModal = () => {
     const { updateCurrentUser } = useAuth();
-    const navigate = ReactRouterDOM.useNavigate();
 
     const [showModal, setShowModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -31,8 +29,8 @@ export const TelegramAuthModal = () => {
                 updateCurrentUser(userData);
                 setStatus('success');
                 setTimeout(() => {
-                    setShowModal(false);
-                    navigate('/app', { replace: true });
+                    // Use replace to avoid adding the auth modal to browser history
+                    window.location.replace('/app');
                 }, 2000);
             } else {
                  throw new Error("User data not returned from API.");

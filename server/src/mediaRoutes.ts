@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import { getDb } from './db';
 import { readFileToBuffer, sanitizeMediaUrl } from './fileUtils';
 import path from 'path';

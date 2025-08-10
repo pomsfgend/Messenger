@@ -21,7 +21,7 @@ const Enable2FAModal: React.FC<Enable2FAModalProps> = ({ onClose, onSuccess }) =
     const handleRef = useRef<HTMLHeadingElement>(null);
     const modalId = 'enable-2fa';
     const { transform } = useDraggable(modalRef, handleRef, modalId);
-    const { size } = useResizable(modalRef, handleRef, modalId);
+    const { size } = useResizable(modalRef, modalId);
 
     const handleTelegramAuth = useCallback(async (user: any) => {
         setLoading(true);

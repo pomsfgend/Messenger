@@ -2,9 +2,7 @@
 
 declare global {
     interface Window {
-        Telegram?: {
-            WebApp?: any;
-        };
+        Telegram?: any;
         onTelegramAuth: (user: any) => void;
         onTelegramAuthEnable2FA: (user: any) => void;
     }

@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -31,17 +32,19 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <I18nProvider>
-      {/* @ts-ignore - Workaround for potential type incompatibility with React 18 */}
-      <GoogleOAuthProvider clientId={clientConfig.GOOGLE_CLIENT_ID}>
-        <ThemeProvider>
-          <AuthProvider>
-            <SocketProvider>
-              <App />
-            </SocketProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </GoogleOAuthProvider>
-    </I18nProvider>
+    <BrowserRouter>
+      <I18nProvider>
+        {/* @ts-ignore - Workaround for potential type incompatibility with React 18 */}
+        <GoogleOAuthProvider clientId={clientConfig.GOOGLE_CLIENT_ID}>
+          <ThemeProvider>
+            <AuthProvider>
+              <SocketProvider>
+                <App />
+              </SocketProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </GoogleOAuthProvider>
+      </I18nProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
