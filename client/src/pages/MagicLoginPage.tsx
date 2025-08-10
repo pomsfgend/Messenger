@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-const { useParams, useNavigate } = ReactRouterDOM;
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import * as api from '../services/api';
 

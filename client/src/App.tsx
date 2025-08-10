@@ -1,6 +1,5 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-const { BrowserRouter, Route, Navigate, Outlet, Routes, useLocation } = ReactRouterDOM;
+import { BrowserRouter, Route, Navigate, Outlet, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';

@@ -112,7 +112,7 @@ const startServer = async () => {
         console.log("✅ TURN server started on port 3478.");
         app.set('turnServer', turnServer);
 
-        const ioOptions = {
+        const io = new Server(server, {
             cors: {
                 origin: allowedOrigins,
                 credentials: true
@@ -120,9 +120,7 @@ const startServer = async () => {
             // FIX: Increase ping timeout and interval to prevent "transport close" errors on slow networks.
             pingTimeout: 60000,
             pingInterval: 25000,
-        };
-        
-        const io = new Server(server, ioOptions);
+        });
         
         setIo(io); // Store the io instance globally
         app.set('io', io); // For access in routes

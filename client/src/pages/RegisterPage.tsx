@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-const { Link, useNavigate } = ReactRouterDOM;
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../hooks/useI18n';
 import toast from 'react-hot-toast';

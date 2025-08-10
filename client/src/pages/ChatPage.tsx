@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-const { useParams, useLocation } = ReactRouterDOM;
+import { useParams, useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 import ChatPlaceholder from '../components/ChatPlaceholder';

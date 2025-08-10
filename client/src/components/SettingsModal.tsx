@@ -6,8 +6,7 @@ import { useI18n } from '../hooks/useI18n';
 import ThemeSelector from './ThemeSelector';
 import { useTheme } from '../hooks/useTheme';
 import Enable2FAModal from './Enable2FAModal';
-import * as ReactRouterDOM from 'react-router-dom';
-const { useNavigate } = ReactRouterDOM;
+import { useNavigate } from 'react-router-dom';
 import { useDraggable } from '../hooks/useDraggable';
 import { useResizable } from '../hooks/useResizable';
 
@@ -66,7 +65,7 @@ const SettingsModal: React.FC<Props> = ({ onClose }) => {
     const handleRef = useRef<HTMLDivElement>(null);
     const modalId = 'settings';
     const { transform } = useDraggable(modalRef, handleRef, modalId);
-    const { size } = useResizable(modalRef, handleRef, modalId);
+    const { size } = useResizable(modalRef, modalId);
 
     const handlePrivacyChange = (key: keyof typeof privacySettings, value: boolean) => {
         setPrivacySettings(prev => ({ ...prev, [key]: value }));

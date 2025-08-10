@@ -96,11 +96,17 @@ router.get('/:chatId', async (req: Request, res: Response) => {
         })).reverse();
 
 
-        // Get all unique user IDs from the fetched messages
-        const userIds = [...new Set(messages.map(m => m.senderId))];
-        if (userIds.length > 0) {
-            const placeholders = userIds.map(() => '?').join(',');
-            const usersFromDb: User[] = await db.all(`SELECT id, name, uniqueId, avatar_url as avatarUrl, role, profile_color, message_color, last_seen, privacy_show_last_seen FROM users WHERE id IN (${placeholders})`, ...userIds);
+        // Get all unique user IDs from the fetched messages AND the chat itself
+        const userIds = new Set(messages.map(m => m.senderId));
+        if (chatId !== GLOBAL_CHAT_ID) {
+            chatId.split('-').forEach(id => userIds.add(id));
+        }
+        
+        const uniqueUserIds = Array.from(userIds);
+
+        if (uniqueUserIds.length > 0) {
+            const placeholders = uniqueUserIds.map(() => '?').join(',');
+            const usersFromDb: User[] = await db.all(`SELECT id, name, uniqueId, avatar_url as avatarUrl, role, profile_color, message_color, last_seen, privacy_show_last_seen FROM users WHERE id IN (${placeholders})`, ...uniqueUserIds);
             
             const users = usersFromDb.reduce((acc, user) => {
                 acc[user.id] = filterUserForPrivacy(user, userId);

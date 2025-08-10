@@ -10,6 +10,7 @@ export const translations = {
     "common.select": "Select",
     "common.selectedCount": "{{count}} selected",
     "common.retry": "Retry",
+    "common.download": "Download",
     // Toasts
     "toast.loginSuccess": "Logged in successfully!",
     "toast.registerSuccess": "Registration successful!",
@@ -133,6 +134,7 @@ export const translations = {
     "chat.messages": "Messages",
     "chat.edit": "Edit",
     "chat.editingMessage": "Editing message...",
+    "chat.cancelEdit": "Cancel edit",
     "chat.edited": "edited",
     "chat.emoji": "Emoji",
     "chat.stickers": "Stickers",
@@ -315,6 +317,7 @@ export const translations = {
     "common.select": "Выбрать",
     "common.selectedCount": "Выбрано: {{count}}",
     "common.retry": "Повторить",
+    "common.download": "Скачать",
     // Toasts
     "toast.loginSuccess": "Вход выполнен успешно!",
     "toast.registerSuccess": "Регистрация прошла успешно!",
@@ -438,6 +441,7 @@ export const translations = {
     "chat.messages": "Сообщения",
     "chat.edit": "Изменить",
     "chat.editingMessage": "Редактирование...",
+    "chat.cancelEdit": "Отмена",
     "chat.edited": "изм.",
     "chat.emoji": "Эмодзи",
     "chat.stickers": "Стикеры",

@@ -109,12 +109,10 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         ]);
         encryptionKeys.current = { sendKey, receiveKey };
         
-        const transceivers = pc.getTransceivers();
-        for (const transceiver of transceivers) {
-            if (transceiver.sender.track && transceiver.receiver.track) {
-                const senderStreams = (transceiver.sender as any).createEncodedStreams();
-                const receiverStreams = (transceiver.receiver as any).createEncodedStreams();
-
+        const senders = pc.getSenders();
+        for (const sender of senders) {
+            if (sender.track) {
+                const senderStreams = (sender as any).createEncodedStreams();
                 senderStreams.readable
                     .pipeThrough(new TransformStream({
                         transform: async (encodedFrame, controller) => {
@@ -132,8 +130,14 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
                         }
                     }))
                     .pipeTo(senderStreams.writable);
-
-                receiverStreams.readable
+            }
+        }
+        
+        const receivers = pc.getReceivers();
+        for (const receiver of receivers) {
+            if (receiver.track) {
+                 const receiverStreams = (receiver as any).createEncodedStreams();
+                 receiverStreams.readable
                     .pipeThrough(new TransformStream({
                         transform: async (encodedFrame, controller) => {
                             try {
@@ -215,14 +219,14 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         if (!pc) return;
         
         try {
-            await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
-            
             localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = localStreamRef.current;
             }
 
+            await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
+            
             await setupE2EE(pc, false);
             
             const answer = await pc.createAnswer();

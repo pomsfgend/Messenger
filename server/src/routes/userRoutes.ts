@@ -116,11 +116,11 @@ router.get('/search', async (req: Request, res: Response) => {
     }
 });
 
-router.get('/profile/:uniqueId', async (req: Request, res: Response) => {
-    const { uniqueId } = req.params;
+router.get('/profile/:identifier', async (req: Request, res: Response) => {
+    const { identifier } = req.params;
     const db = getDb();
     try {
-        const user = await db.get(`SELECT ${privacySensitiveFields} FROM users u WHERE uniqueId = ?`, uniqueId);
+        const user = await db.get(`SELECT ${privacySensitiveFields} FROM users u WHERE u.uniqueId = ? OR u.id = ?`, [identifier, identifier]);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }

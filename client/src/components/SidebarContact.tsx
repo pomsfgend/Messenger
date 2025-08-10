@@ -10,7 +10,6 @@ export interface SidebarContactData {
     unreadCounts: Record<string, number>;
     typingStatus: Record<string, { userId: string; timer: number }>;
     isGlobalMuted: boolean;
-    onlineUserIds: Set<string>;
     currentUser: User | null | undefined;
     handleContactClick: (contact: ChatContact) => void;
     handleContextMenu: (e: React.MouseEvent, contact: ChatContact) => void;
@@ -25,7 +24,7 @@ interface SidebarContactProps {
 const SidebarContact: React.FC<SidebarContactProps> = ({ index, style, data }) => {
     const {
         contacts, activeChatId, unreadCounts, typingStatus, isGlobalMuted, 
-        onlineUserIds, currentUser, handleContactClick, handleContextMenu
+        currentUser, handleContactClick, handleContextMenu
     } = data;
     
     const contact = contacts[index];
@@ -37,8 +36,7 @@ const SidebarContact: React.FC<SidebarContactProps> = ({ index, style, data }) =
     const unreadCount = unreadCounts[privateChatId] || 0;
     const isTyping = !!typingStatus[privateChatId];
     const isMuted = privateChatId === GLOBAL_CHAT_ID ? isGlobalMuted : contact.is_muted || false;
-    const isOnline = onlineUserIds.has(contact.id);
-
+    
     const renderLastMessage = () => {
         if (isTyping) {
             return <span className="text-[rgb(var(--color-accent-primary))] italic">{t('chat.typing')}</span>;
@@ -65,7 +63,7 @@ const SidebarContact: React.FC<SidebarContactProps> = ({ index, style, data }) =
             // The list item itself has padding, so we adjust the li style to fill the space
             className={`flex items-center p-3 rounded-xl cursor-pointer transition-colors duration-200 mx-1 ${isActive ? 'bg-slate-200/80 dark:bg-slate-700/80' : 'hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
         >
-            <Avatar user={{...contact, isOnline}} />
+            <Avatar user={contact} />
             <div className="flex-1 ml-3 min-w-0">
                 <p className="font-semibold text-sm truncate">{contact.name}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{renderLastMessage()}</p>

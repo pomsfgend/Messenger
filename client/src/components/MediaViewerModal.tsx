@@ -93,7 +93,7 @@ const MediaViewerModal: React.FC<MediaViewerModalProps> = ({ items, startIndex, 
             <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black/50 to-transparent flex items-center justify-between p-4 text-white z-10" onClick={e => e.stopPropagation()}>
                 <div className="font-semibold">{`${currentIndex + 1} / ${items.length}`}</div>
                 <div className="flex items-center gap-4">
-                    <button onClick={handleDownload} disabled={isProcessing} title="Скачать" className="p-2 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50">
+                    <button onClick={handleDownload} disabled={isProcessing} title={t('common.download')} className="p-2 rounded-full hover:bg-white/20 transition-colors disabled:opacity-50">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     </button>
                     <button onClick={toggleFullscreen} title={t('media.fullscreen')} className="p-2 rounded-full hover:bg-white/20 transition-colors">

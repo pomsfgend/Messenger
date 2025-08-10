@@ -44,6 +44,9 @@ const MessageContextMenu: React.FC<MessageContextMenuProps> = ({ x, y, onClose, 
             if (y + menuHeight > screenHeight - 10) {
                 newY = y - menuHeight;
             }
+
+            if (newX < 10) newX = 10;
+            if (newY < 10) newY = 10;
             
             setPosition({ top: newY, left: newX, opacity: 1 });
         }

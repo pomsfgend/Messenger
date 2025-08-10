@@ -1,6 +1,5 @@
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-const { useParams, Navigate } = ReactRouterDOM;
+import { useParams, Navigate } from 'react-router-dom';
 import ChatWindow from '../components/ChatWindow';
 import ParticleBackground from '../components/ParticleBackground';
 

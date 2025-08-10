@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
-const { useNavigate } = ReactRouterDOM;
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import * as api from '../services/api';
 import type { ChatContact, User, Message } from '../types';
@@ -61,7 +60,6 @@ const Sidebar: React.FC<{
     const [typingStatus, setTypingStatus] = useState<Record<string, { userId: string, timer: number }>>({});
     const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
     const [isGlobalMuted, setIsGlobalMuted] = useState(() => localStorage.getItem('global_chat_muted') === 'true');
-    const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, contact: ChatContact } | null>(null);
     const [listHeight, setListHeight] = useState(0);
 
@@ -72,12 +70,6 @@ const Sidebar: React.FC<{
     
     const activeChatIdRef = useRef(activeChatId);
     useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
-
-    const isGlobalMutedRef = useRef(isGlobalMuted);
-    useEffect(() => { isGlobalMutedRef.current = isGlobalMuted; }, [isGlobalMuted]);
-
-    const contactsRef = useRef(contacts);
-    useEffect(() => { contactsRef.current = contacts; }, [contacts]);
     
     useEffect(() => {
         if (mainRef.current) {
@@ -110,7 +102,7 @@ const Sidebar: React.FC<{
     const fetchMyChats = useCallback(async () => {
         if (!currentUser) return;
         try {
-            const [usersFromApi, onlineUsers] = await Promise.all([api.getMyChats(), api.getOnlineUsers()]);
+            const usersFromApi = await api.getMyChats();
             const unreadMap: Record<string, number> = {};
             
             const userContacts: ChatContact[] = usersFromApi.map(user => {
@@ -120,7 +112,6 @@ const Sidebar: React.FC<{
             });
             
             setUnreadCounts(prev => ({...prev, ...unreadMap}));
-            setOnlineUserIds(new Set(onlineUsers.map(u => u.id)));
 
             const globalChatPseudoContact: ChatContact = {
                 id: GLOBAL_CHAT_ID,
@@ -161,12 +152,6 @@ const Sidebar: React.FC<{
         if (!socket || !currentUser) return;
 
         const handlePresenceChange = (data: { userId: string, online: boolean, lastSeen: string | null, profile_color?: string, message_color?: string }) => {
-            setOnlineUserIds(prev => {
-                const newSet = new Set(prev);
-                if (data.online) newSet.add(data.userId);
-                else newSet.delete(data.userId);
-                return newSet;
-            });
             setContacts(prevContacts => prevContacts.map(contact => 
                 contact.id === data.userId ? { ...contact, lastSeen: data.lastSeen, isOnline: data.online, profile_color: data.profile_color, message_color: data.message_color } : contact
             ));
@@ -205,13 +190,12 @@ const Sidebar: React.FC<{
         
             if (!isFromSelf && (!isChatActive || !isWindowFocused)) {
                 const isGlobal = msg.chatId === GLOBAL_CHAT_ID;
-                const isGloballyMutedNow = localStorage.getItem('global_chat_muted') === 'true';
-                const contact = isGlobal ? null : contactsRef.current.find(c => {
+                const contact = isGlobal ? null : contacts.find(c => {
                     const partnerId = msg.chatId.split('-').find(id => id !== currentUser.id);
                     return c.id === partnerId;
                 });
                 
-                const isMuted = isGlobal ? isGloballyMutedNow : contact?.is_muted;
+                const isMuted = isGlobal ? localStorage.getItem('global_chat_muted') === 'true' : contact?.is_muted;
         
                 if (!isMuted) {
                     audioRef.current?.play().catch(e => console.warn("Audio play failed:", e));
@@ -326,7 +310,7 @@ const Sidebar: React.FC<{
             socket.off('unreadCountCleared');
             socket.off('chatStateUpdated');
         };
-    }, [socket, currentUser, fetchMyChats, sortContacts, updateCurrentUser, t]);
+    }, [socket, currentUser, fetchMyChats, sortContacts, updateCurrentUser, t, contacts]);
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         const term = e.target.value;
@@ -395,10 +379,10 @@ const Sidebar: React.FC<{
             <main ref={mainRef} className="flex-1 overflow-y-auto min-h-0">
                 {isSearching ? (
                     <ul>
-                    {displayList.map(contact => (
+                    {displayList.map((contact, index) => (
                         <SidebarContact
                             key={contact.id}
-                            index={-1}
+                            index={index}
                             style={{}}
                             data={{
                                 contacts: displayList as ChatContact[],
@@ -406,7 +390,6 @@ const Sidebar: React.FC<{
                                 unreadCounts: {},
                                 typingStatus: {},
                                 isGlobalMuted,
-                                onlineUserIds,
                                 currentUser,
                                 handleContactClick,
                                 handleContextMenu,
@@ -426,7 +409,6 @@ const Sidebar: React.FC<{
                             unreadCounts,
                             typingStatus,
                             isGlobalMuted,
-                            onlineUserIds,
                             currentUser,
                             handleContactClick,
                             handleContextMenu,
