@@ -3,9 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs';
-import { createRequire } from 'module';
 
-const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -39,13 +37,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      // Add absolute paths for problematic dependencies to ensure resolution.
-      'react-window': require.resolve('react-window'),
-      'react-device-detect': require.resolve('react-device-detect'),
     },
   },
   optimizeDeps: {
-    include: ['react-dom', 'framer-motion', 'buffer', 'emoji-picker-react', 'react-router-dom', 'react-icons/fa', 'react-window', 'react-device-detect'],
+    include: ['react-dom', 'framer-motion', 'buffer', 'emoji-picker-react', 'react-router-dom', 'react-icons/fa', 'react-window'],
   },
   server: {
     https: httpsConfig, // Use HTTPS if certs are available

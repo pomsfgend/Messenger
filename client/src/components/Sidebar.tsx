@@ -112,17 +112,14 @@ const Sidebar: React.FC<{
             const [usersFromApi, onlineUsers] = await Promise.all([api.getMyChats(), api.getOnlineUsers()]);
             const unreadMap: Record<string, number> = {};
             
-            const onlineUsersSet = new Set(onlineUsers.map(u => u.id));
-            setOnlineUserIds(onlineUsersSet);
-
             const userContacts: ChatContact[] = usersFromApi.map(user => {
                 const chatId = [currentUser.id, user.id].sort().join('-');
                 if (user.unreadCount && user.unreadCount > 0) unreadMap[chatId] = user.unreadCount;
-                // CRITICAL FIX: Set initial online status from the fetched online users list.
-                return { ...user, type: 'private', isOnline: onlineUsersSet.has(user.id) };
+                return { ...user, type: 'private' };
             });
             
             setUnreadCounts(prev => ({...prev, ...unreadMap}));
+            setOnlineUserIds(new Set(onlineUsers.map(u => u.id)));
 
             const globalChatPseudoContact: ChatContact = {
                 id: GLOBAL_CHAT_ID,
@@ -177,53 +174,31 @@ const Sidebar: React.FC<{
         const handleNewMessage = (payload: Message & { sender: User }) => {
             const { sender, ...msg } = payload;
             
+            // FIX: Deduplication to prevent double notifications from server double-emit.
             if (processedMessageIds.current.has(msg.id)) return;
             processedMessageIds.current.add(msg.id);
             setTimeout(() => processedMessageIds.current.delete(msg.id), 2000);
 
-            let contactFound = false;
-
             setContacts(prevContacts => {
                 const partnerId = msg.chatId.includes('-') ? msg.chatId.split('-').find(id => id !== currentUser.id) : null;
                 const contactId = msg.chatId === GLOBAL_CHAT_ID ? GLOBAL_CHAT_ID : partnerId;
-
-                const contactIndex = prevContacts.findIndex(c => c.id === contactId);
                 
-                if (contactIndex === -1) {
-                    // CRITICAL FIX: If contact not found (new chat), do nothing here and let the fallback handle it.
-                    contactFound = false;
-                    return prevContacts;
-                }
-                
-                contactFound = true;
-                const updatedContact = {
-                    ...prevContacts[contactIndex],
-                    lastMessageContent: msg.content,
-                    lastMessageSenderId: msg.senderId,
-                    lastMessageTimestamp: msg.timestamp,
-                    lastMessageType: msg.type,
-                    lastMessageIsDeleted: msg.isDeleted ?? false,
-                };
-                
-                // Create a new array, remove the old contact, and prepend the updated one (except for Global Chat).
-                const newContacts = [...prevContacts];
-                newContacts.splice(contactIndex, 1);
-                
-                if (updatedContact.id === GLOBAL_CHAT_ID) {
-                    return [updatedContact, ...newContacts];
-                }
-                
-                const globalChatIndex = newContacts.findIndex(c => c.id === GLOBAL_CHAT_ID);
-                newContacts.splice(globalChatIndex + 1, 0, updatedContact);
-
-                return newContacts;
+                const updatedContacts = prevContacts.map(c => {
+                    if (c.id === contactId) {
+                        return {
+                            ...c,
+                            lastMessageContent: msg.content,
+                            lastMessageSenderId: msg.senderId,
+                            lastMessageTimestamp: msg.timestamp,
+                            lastMessageType: msg.type,
+                            lastMessageIsDeleted: msg.isDeleted ?? false,
+                        };
+                    }
+                    return c;
+                });
+                return updatedContacts.sort(sortContacts);
             });
         
-            // CRITICAL FIX: If the contact wasn't found, it's a new chat. Refresh the list.
-            if (!contactFound && msg.senderId !== currentUser.id) {
-                fetchMyChats();
-            }
-
             const isFromSelf = msg.senderId === currentUser.id;
             const isChatActive = msg.chatId === activeChatIdRef.current;
             const isWindowFocused = document.hasFocus();
@@ -419,11 +394,11 @@ const Sidebar: React.FC<{
             <main ref={mainRef} className="flex-1 overflow-y-auto min-h-0">
                 {isSearching ? (
                     <ul>
-                    {displayList.map((contact, index) => (
+                    {displayList.map(contact => (
                         <SidebarContact
                             key={contact.id}
-                            index={index}
-                            style={{}}   // Not needed for non-virtualized
+                            index={-1} // Not needed for non-virtualized
+                            style={{}}   // Not needed
                             data={{
                                 contacts: displayList as ChatContact[],
                                 activeChatId: '',

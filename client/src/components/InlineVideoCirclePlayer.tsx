@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 
@@ -92,8 +93,7 @@ const InlineVideoCirclePlayer: React.FC<InlineVideoCirclePlayerProps> = ({ src, 
             className="relative group rounded-full cursor-pointer shadow-lg"
             onClick={togglePlay}
             onContextMenu={(e) => e.preventDefault()}
-            variants={divVariants}
-            animate={isScaled ? "scaled" : "normal"}
+            animate={isScaled ? divVariants.scaled : divVariants.normal}
         >
             <video 
                 ref={videoRef}

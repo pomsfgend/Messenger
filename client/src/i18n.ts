@@ -10,8 +10,6 @@ export const translations = {
     "common.select": "Select",
     "common.selectedCount": "{{count}} selected",
     "common.retry": "Retry",
-    "common.download": "Download",
-    "common.processAndDownload": "Process & Download",
     // Toasts
     "toast.loginSuccess": "Logged in successfully!",
     "toast.registerSuccess": "Registration successful!",
@@ -317,8 +315,6 @@ export const translations = {
     "common.select": "Выбрать",
     "common.selectedCount": "Выбрано: {{count}}",
     "common.retry": "Повторить",
-    "common.download": "Скачать",
-    "common.processAndDownload": "Обработать и скачать",
     // Toasts
     "toast.loginSuccess": "Вход выполнен успешно!",
     "toast.registerSuccess": "Регистрация прошла успешно!",

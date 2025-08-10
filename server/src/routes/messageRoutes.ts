@@ -77,15 +77,7 @@ router.get('/:chatId', async (req: Request, res: Response) => {
             rows.pop(); // Remove the extra message
         }
 
-        const messages = rows.reverse().map(msg => {
-            try {
-                // CRITICAL FIX: Parse reactions from JSON string to object before sending to client.
-                return { ...msg, reactions: msg.reactions ? JSON.parse(msg.reactions as any) : {} };
-            } catch (e) {
-                // If JSON is invalid, return an empty object to prevent client-side crashes.
-                return { ...msg, reactions: {} };
-            }
-        });
+        const messages = rows.reverse(); // Newest at the bottom
 
         // Get all unique user IDs from the fetched messages
         const userIds = [...new Set(messages.map(m => m.senderId))];

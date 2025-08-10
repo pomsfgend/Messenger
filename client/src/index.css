@@ -172,33 +172,6 @@
     .skeleton-line {
         @apply h-4 bg-slate-300 dark:bg-slate-600 rounded animate-pulse;
     }
-    
-    /* Reaction Bubble Styles */
-    .reaction-bubble {
-        @apply absolute -bottom-3;
-        @apply flex gap-1 p-1 rounded-full text-xs;
-        background-color: rgb(var(--color-bg-secondary));
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-
-    .reaction-bubble.own {
-        @apply right-1;
-    }
-    .reaction-bubble.other {
-        @apply left-1;
-    }
-    
-    .reaction-pill {
-        @apply px-2 py-0.5 rounded-full cursor-pointer transition-colors;
-    }
-    
-    .reaction-pill.selected {
-        @apply bg-indigo-500 text-white;
-    }
-    
-    .reaction-pill.unselected {
-        @apply bg-white dark:bg-slate-700;
-    }
 }
 
 
@@ -243,15 +216,4 @@
 
 .animate-deleted-message {
   animation: shrink-width-and-fade 5s linear forwards;
-}
-
-/* Mobile Specific Fixes */
-@media (max-width: 768px) {
-    .call-ui.mobile-fullscreen .call-controls {
-      flex-direction: row; /* Ensure it's a row */
-    }
-    
-    .message-input-area {
-        flex-direction: row; /* Override potential column layout */
-    }
 }

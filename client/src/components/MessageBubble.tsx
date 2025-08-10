@@ -229,7 +229,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                         </div>
                     </div>
                     {hasReactions && (
-                         <div className={`reaction-bubble ${isOwn ? 'own' : 'other'}`}>
+                         <div className={`flex gap-1 mt-1 p-1 rounded-full bg-slate-200/50 dark:bg-slate-900/50 ${isOwn ? 'mr-1' : 'ml-1'}`}>
                              {Object.keys(message.reactions!).map(emoji => {
                                 const userIds = message.reactions![emoji];
                                 if (userIds.length === 0) return null;
@@ -237,7 +237,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                                     <button 
                                         key={emoji} 
                                         onClick={(e) => { e.stopPropagation(); handleReaction(emoji); }}
-                                        className={`reaction-pill ${userIds.includes(currentUser!.id) ? 'selected' : 'unselected'}`}
+                                        className={`px-2 py-0.5 rounded-full text-xs transition-colors ${userIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
                                     >
                                         {emoji} {userIds.length}
                                     </button>
@@ -339,7 +339,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
 
                  {hasReactions && (
-                    <div className={`reaction-bubble ${isOwn ? 'own' : 'other'}`}>
+                    <div className={`flex gap-1 mt-1 p-1 rounded-full bg-slate-200/50 dark:bg-slate-900/50 ${isOwn ? 'mr-1' : 'ml-1'}`}>
                         {Object.keys(message.reactions!).map(emoji => {
                             const userIds = message.reactions![emoji];
                             if (userIds.length === 0) return null;
@@ -347,7 +347,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                                 <button 
                                     key={emoji} 
                                     onClick={() => handleReaction(emoji)}
-                                    className={`reaction-pill ${userIds.includes(currentUser!.id) ? 'selected' : 'unselected'}`}
+                                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${userIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
                                 >
                                     {emoji} {userIds.length}
                                 </button>

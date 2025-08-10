@@ -25,7 +25,6 @@ import { FaVideo, FaMicrophone, FaMicrophoneSlash, FaVideoSlash, FaPhoneSlash } 
 import { useCall } from '../hooks/useCall';
 import IncomingCallToast from './IncomingCallToast';
 import { isMobile } from 'react-device-detect';
-import ForwardMessageModal from './ForwardMessageModal';
 
 
 const AudioRecorder: React.FC<{ onSend: (file: File) => void; onCancel: () => void; }> = ({ onSend, onCancel }) => {
@@ -186,7 +185,6 @@ const ChatWindow: React.FC<{
     
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
     const [isReacting, setIsReacting] = useState<string | null>(null);
-    const [forwardingMessage, setForwardingMessage] = useState<{ message: Message; sender?: User } | null>(null);
     
     const [isMuted, setIsMuted] = useState(false);
     const [temporarilyDeleted, setTemporarilyDeleted] = useState<Set<string>>(new Set());
@@ -257,9 +255,15 @@ const ChatWindow: React.FC<{
             setHasMore(newHasMore);
             
             if (isInitial) {
-                // Partner info is now fetched independently for reliability.
-                // Mute status will be fetched with partner info.
-                if (chatId === GLOBAL_CHAT_ID) {
+                const partnerId = chatId !== GLOBAL_CHAT_ID ? chatId.split('-').find(id => id !== currentUser!.id) : undefined;
+                if (partnerId && users[partnerId]) {
+                    const partnerData = users[partnerId] as ChatContact;
+                     const myChats = await api.getMyChats();
+                     const chatContact = myChats.find(c => c.id === partnerId);
+                     setIsMuted(chatContact?.is_muted ?? false);
+
+                    setPartner({ ...partnerData, isOnline: !partnerData.lastSeen });
+                } else if (chatId === GLOBAL_CHAT_ID) {
                     setIsMuted(localStorage.getItem('global_chat_muted') === 'true');
                 }
             }
@@ -269,35 +273,7 @@ const ChatWindow: React.FC<{
             if (isInitial) setIsLoading(false);
             isFetchingMoreRef.current = false;
         }
-    }, [chatId, t]);
-
-    // CRITICAL FIX: Fetch partner info independently to ensure header and call button render immediately.
-    useEffect(() => {
-        const fetchPartnerInfo = async () => {
-            if (!chatId || !currentUser || chatId === GLOBAL_CHAT_ID) {
-                setPartner(null);
-                return;
-            };
-
-            const partnerId = chatId.split('-').find(id => id !== currentUser.id);
-            if (partnerId) {
-                try {
-                    // This assumes getMyChats returns a list of contacts with their full profile.
-                    // A more direct api.getUser(partnerId) would also work.
-                    const myChats = await api.getMyChats();
-                    const chatContact = myChats.find(c => c.id === partnerId);
-                    if (chatContact) {
-                        setPartner({ ...chatContact, isOnline: !chatContact.lastSeen });
-                        setIsMuted(chatContact.is_muted ?? false);
-                    }
-                } catch (error) {
-                    console.error("Failed to fetch partner info", error);
-                }
-            }
-        };
-
-        fetchPartnerInfo();
-    }, [chatId, currentUser]);
+    }, [chatId, currentUser, t]);
     
     useEffect(() => {
         resetState();
@@ -699,50 +675,6 @@ const ChatWindow: React.FC<{
         setContextMenu({ x: e.clientX, y: e.clientY, message });
     };
 
-    const getMessageActions = (message: Message): (Action | false)[] => {
-        const isOwn = message.senderId === currentUser!.id;
-        const canDelete = isOwn || currentUser!.role === 'admin' || currentUser!.role === 'moderator';
-        const canEdit = isOwn && message.type === 'text' && !message.isDeleted;
-    
-        return [
-            {
-                label: t('chat.react'),
-                action: () => setIsReacting(message.id),
-            },
-            canEdit && {
-                label: t('chat.edit'),
-                action: () => handleEditMessage(message),
-            },
-            {
-                label: t('chat.forward'),
-                action: () => setForwardingMessage({ message, sender: chatUsers[message.senderId] }),
-            },
-            {
-                label: t('common.select'),
-                action: () => {
-                    setSelectionMode(true);
-                    setSelectedMessages(new Set([message.id]));
-                },
-            },
-            !!message.mediaUrl && message.type !== 'video_circle' && {
-                label: t('common.download'),
-                action: () => handleDownload(`/api/media/${message.mediaUrl}`, message.content || `download-${message.id}`),
-            },
-            message.type === 'video_circle' && {
-                label: t('common.processAndDownload'),
-                action: () => handleProcessAndDownload(message),
-            },
-            canDelete && {
-                label: t('common.delete'),
-                action: () => {
-                    setSelectedMessages(new Set([message.id]));
-                    setDeleteConfirmOpen(true);
-                },
-                isDestructive: true,
-            },
-        ];
-    };
-
     const handleMediaClick = (message: Message) => {
         const mediaItems = messages.filter(m => ['image', 'video', 'video_circle'].includes(m.type) && !m.isDeleted);
         const startIndex = mediaItems.findIndex(m => m.id === message.id);
@@ -884,7 +816,7 @@ const ChatWindow: React.FC<{
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 </button>
                  <button onClick={() => setIsRecordingVideo(true)} className="p-3 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2-2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 001.553.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 001.553.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
                 </button>
                 <div className="flex-1 relative">
                     {editingMessage && (
@@ -921,24 +853,16 @@ const ChatWindow: React.FC<{
             {viewingProfile && <ViewProfileModal user={viewingProfile} onClose={() => setViewingProfile(null)} onStartChat={(userId) => { setViewingProfile(null); navigate(`/app/chat/${[currentUser!.id, userId].sort().join('-')}`)}} />}
             {isChatInfoModalOpen && <GlobalChatInfoModal onClose={() => setIsChatInfoModalOpen(false)} />}
             {mediaPreview && <MediaUploadPreviewModal item={mediaPreview} onClose={() => setMediaPreview(null)} onSend={handleFileUpload} />}
-            {contextMenu && <MessageContextMenu menuRef={contextMenuRef} x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} actions={getMessageActions(contextMenu.message)} />}
+            {contextMenu && <MessageContextMenu menuRef={contextMenuRef} x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} actions={[]} />}
             {mediaViewerState && <MediaViewerModal items={mediaViewerState.items} startIndex={mediaViewerState.startIndex} onClose={() => setMediaViewerState(null)} />}
             {isRecordingVideo && <VideoRecorderModal onClose={() => setIsRecordingVideo(false)} onSend={(file) => handleFileUpload(file, '', 'video_circle')} />}
             <ConfirmationModal isOpen={isDeleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} onConfirm={handleDeleteSelected} title={t('common.delete') + ' ' + (selectedMessages.size > 1 ? t('chat.messages') : t('chat.message'))} message={t('chat.deleteConfirm', { count: selectedMessages.size })} />
-            {forwardingMessage && <ForwardMessageModal messageToForward={forwardingMessage.message} sender={forwardingMessage.sender} onClose={() => setForwardingMessage(null)} />}
             
             {renderChatHeader()}
             
             <AnimatePresence>
                 {selectionMode && (
-                    <motion.div
-                        variants={{
-                            hidden: { y: -50, opacity: 0 },
-                            visible: { y: 0, opacity: 1 },
-                        }}
-                        initial="hidden"
-                        animate="visible"
-                        exit="hidden"
+                    <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }}
                         className="absolute top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-2 rounded-lg shadow-lg">
                         <span className="font-semibold text-sm">{t('common.selectedCount', { count: selectedMessages.size })}</span>
                         <button onClick={() => setDeleteConfirmOpen(true)} className="p-2 text-red-500 rounded-full hover:bg-red-500/10 transition-colors" disabled={selectedMessages.size === 0}>
@@ -998,14 +922,10 @@ const ChatWindow: React.FC<{
             {/* Video Call UI */}
             <AnimatePresence>
                 {call.inCall && (
-                    <motion.div
-                        variants={{
-                            hidden: { opacity: 0, scale: 0.95, y: 20 },
-                            visible: { opacity: 1, scale: 1, y: 0 },
-                        }}
-                        initial="hidden"
-                        animate="visible"
-                        exit="hidden"
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
                         className={`call-ui ${isMobile ? 'mobile-fullscreen' : ''}`}
                     >
                         <video ref={remoteVideoRef} autoPlay playsInline className="remote-video" />

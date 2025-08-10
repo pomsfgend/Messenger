@@ -115,7 +115,7 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         
         const transceivers = pc.getTransceivers();
         for (const transceiver of transceivers) {
-            if (transceiver.sender?.track && transceiver.receiver?.track && typeof (transceiver.sender as any).createEncodedStreams === 'function') {
+            if (transceiver.sender.track && transceiver.receiver.track) {
                 const senderStreams = (transceiver.sender as any).createEncodedStreams();
                 const receiverStreams = (transceiver.receiver as any).createEncodedStreams();
 
@@ -164,46 +164,39 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         }
     }, [chatId]);
 
+
     const startCall = useCallback(async (partner: User) => {
         if (!socket || !currentUser) return;
-    
+
         callPartnerRef.current = partner;
-    
+        
         const pc = await createPeerConnection();
         if (!pc) return;
-    
+        
         try {
-            // 1. Get local media and add tracks
             localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = localStreamRef.current;
-            }
-    
-            // 2. CRITICAL FIX: Setup E2EE *before* creating the offer.
-            // This is where createEncodedStreams is called internally.
-            await setupE2EE(pc, true);
-    
-            // 3. Now, create the offer
-            const offer = await pc.createOffer();
-    
-            // 4. Set the local description
-            await pc.setLocalDescription(offer);
-    
-            // 5. Send the offer
-            socket.emit('call:start', {
-                to: partner.id,
-                from: currentUser,
-                offer,
-            });
-    
-            setInCall(true);
         } catch (err) {
-            console.error("Failed to start call:", err);
-            // Clean up on failure
-            pc.close();
-            localStreamRef.current?.getTracks().forEach(track => track.stop());
+            console.error("Failed to get user media", err);
+            return;
         }
+        
+        localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
+        if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current;
+        }
+        
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        
+        await setupE2EE(pc, true);
+
+        socket.emit('call:start', {
+            to: partner.id,
+            from: currentUser,
+            offer,
+        });
+
+        setInCall(true);
     }, [socket, currentUser, createPeerConnection, localVideoRef, setupE2EE]);
     
     const endCall = useCallback(() => {
@@ -230,45 +223,38 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
 
     const acceptCall = useCallback(async () => {
         if (!socket || !currentUser || !incomingCall) return;
-    
+
         callPartnerRef.current = incomingCall.caller;
         const pc = await createPeerConnection();
         if (!pc) return;
-    
+        
         try {
-            // 1. Set the remote description from the offer
-            await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
-    
-            // 2. Get local media and add tracks
             localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
-            if (localVideoRef.current) {
-                localVideoRef.current.srcObject = localStreamRef.current;
-            }
-    
-            // 3. CRITICAL FIX: Setup E2EE *before* creating the answer.
-            await setupE2EE(pc, false);
-    
-            // 4. Now, create the answer
-            const answer = await pc.createAnswer();
-    
-            // 5. Set the local description
-            await pc.setLocalDescription(answer);
-    
-            // 6. Send the answer
-            socket.emit('webrtc:answer', {
-                to: incomingCall.caller.id,
-                answer,
-            });
-    
-            setInCall(true);
-            setIncomingCall(null);
         } catch(err) {
-            console.error("Failed to accept call:", err);
+            console.error("Failed to get user media for answer", err);
             rejectCall();
-            pc.close();
-            localStreamRef.current?.getTracks().forEach(track => track.stop());
+            return;
         }
+
+        localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
+        if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current;
+        }
+
+        await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
+        
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        await setupE2EE(pc, false);
+        
+        socket.emit('webrtc:answer', {
+            to: incomingCall.caller.id,
+            answer,
+        });
+        
+        setInCall(true);
+        setIncomingCall(null);
     }, [socket, currentUser, incomingCall, createPeerConnection, localVideoRef, setupE2EE, rejectCall]);
 
     const toggleMic = () => {
@@ -297,7 +283,7 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         };
         
         const handleAnswer = async (data: { answer: RTCSessionDescriptionInit }) => {
-            if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'stable') {
+            if (peerConnectionRef.current) {
                 await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
             }
         };

@@ -18,7 +18,7 @@ import { protect, isModeratorOrAdmin } from './auth';
 import authRoutes, { initializeAuthServices } from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import messageRoutes from './routes/messageRoutes';
-import mediaRoutes from './routes/mediaRoutes';
+import mediaRoutes from './mediaRoutes';
 import adminRoutes from './routes/adminRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import statsRoutes from './routes/statsRoutes';
