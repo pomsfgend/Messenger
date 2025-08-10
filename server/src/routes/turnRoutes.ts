@@ -30,7 +30,10 @@ router.get('/', (req: Request, res: Response) => {
         credential: password,
     };
     
-    res.json([iceServer]);
+    res.json([
+        { urls: 'stun:stun.l.google.com:19302' },
+        iceServer
+    ]);
 });
 
 export { router as default };

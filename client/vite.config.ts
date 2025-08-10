@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -40,7 +41,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['react-dom', 'framer-motion', 'buffer', 'emoji-picker-react', 'react-router-dom', 'react-icons/fa', 'react-window'],
+    include: ['react-dom', 'framer-motion', 'buffer', 'emoji-picker-react', 'react-icons/fa', 'react-window'],
   },
   server: {
     https: httpsConfig, // Use HTTPS if certs are available

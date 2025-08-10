@@ -33,7 +33,7 @@ const SidebarContact: React.FC<SidebarContactProps> = ({ index, style, data }) =
 
     const privateChatId = (contact.id !== GLOBAL_CHAT_ID && currentUser) ? [currentUser.id, contact.id].sort().join('-') : GLOBAL_CHAT_ID;
     const isActive = activeChatId === privateChatId;
-    const unreadCount = unreadCounts[privateChatId] || 0;
+    const unreadCount = contact.unreadCount || unreadCounts[privateChatId] || 0;
     const isTyping = !!typingStatus[privateChatId];
     const isMuted = privateChatId === GLOBAL_CHAT_ID ? isGlobalMuted : contact.is_muted || false;
     

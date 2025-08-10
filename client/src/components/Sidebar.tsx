@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import * as api from '../services/api';
 import type { ChatContact, User, Message } from '../types';
@@ -49,7 +49,7 @@ const Sidebar: React.FC<{
 }> = ({ activeChatId, onSidebarClose }) => {
     const { currentUser, logout, updateCurrentUser } = useAuth();
     const { t } = useI18n();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const { socket } = useSocket();
     const [contacts, setContacts] = useState<ChatContact[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -103,16 +103,9 @@ const Sidebar: React.FC<{
         if (!currentUser) return;
         try {
             const usersFromApi = await api.getMyChats();
-            const unreadMap: Record<string, number> = {};
             
-            const userContacts: ChatContact[] = usersFromApi.map(user => {
-                const chatId = [currentUser.id, user.id].sort().join('-');
-                if (user.unreadCount && user.unreadCount > 0) unreadMap[chatId] = user.unreadCount;
-                return { ...user, type: 'private' };
-            });
+            const userContacts: ChatContact[] = usersFromApi.map(user => ({ ...user, type: 'private' }));
             
-            setUnreadCounts(prev => ({...prev, ...unreadMap}));
-
             const globalChatPseudoContact: ChatContact = {
                 id: GLOBAL_CHAT_ID,
                 name: t('sidebar.globalChat'),
@@ -137,15 +130,14 @@ const Sidebar: React.FC<{
     useEffect(() => {
         if (activeChatId && socket) {
             const privateChatId = activeChatId.includes('-') ? activeChatId.split('-').sort().join('-') : activeChatId;
-            setUnreadCounts(prev => {
-                if (!prev[privateChatId]) return prev;
-                const newCounts = { ...prev };
-                delete newCounts[privateChatId];
-                return newCounts;
-            });
+            setContacts(prev => prev.map(c => {
+                const cChatId = (c.id !== GLOBAL_CHAT_ID && currentUser) ? [currentUser.id, c.id].sort().join('-') : GLOBAL_CHAT_ID;
+                if (cChatId === privateChatId) return { ...c, unreadCount: 0 };
+                return c;
+            }));
             socket.emit('markMessagesAsRead', { chatId: activeChatId });
         }
-    }, [activeChatId, socket]);
+    }, [activeChatId, socket, currentUser]);
 
     
     useEffect(() => {
@@ -189,19 +181,19 @@ const Sidebar: React.FC<{
             const isWindowFocused = document.hasFocus();
         
             if (!isFromSelf && (!isChatActive || !isWindowFocused)) {
-                const isGlobal = msg.chatId === GLOBAL_CHAT_ID;
-                const contact = isGlobal ? null : contacts.find(c => {
-                    const partnerId = msg.chatId.split('-').find(id => id !== currentUser.id);
-                    return c.id === partnerId;
-                });
-                
-                const isMuted = isGlobal ? localStorage.getItem('global_chat_muted') === 'true' : contact?.is_muted;
-        
-                if (!isMuted) {
-                    audioRef.current?.play().catch(e => console.warn("Audio play failed:", e));
-                    const normalizedChatId = msg.chatId.includes('-') ? msg.chatId.split('-').sort().join('-') : msg.chatId;
-                    setUnreadCounts(prev => ({...prev, [normalizedChatId]: (prev[normalizedChatId] || 0) + 1 }));
-                }
+                 setContacts(prev => prev.map(c => {
+                    const cChatId = (c.id !== GLOBAL_CHAT_ID && currentUser) ? [currentUser.id, c.id].sort().join('-') : GLOBAL_CHAT_ID;
+                    if (cChatId === msg.chatId) {
+                        const isGlobal = c.id === GLOBAL_CHAT_ID;
+                        const contact = isGlobal ? null : contacts.find(contact => contact.id === c.id);
+                        const isMuted = isGlobal ? localStorage.getItem('global_chat_muted') === 'true' : contact?.is_muted;
+                        if (!isMuted) {
+                             audioRef.current?.play().catch(e => console.warn("Audio play failed:", e));
+                             return { ...c, unreadCount: (c.unreadCount || 0) + 1 };
+                        }
+                    }
+                    return c;
+                }));
             }
         };
 
@@ -218,23 +210,17 @@ const Sidebar: React.FC<{
                     lastMessageTimestamp: firstMessage.timestamp,
                     lastMessageType: firstMessage.type,
                     lastMessageIsDeleted: firstMessage.isDeleted ?? false,
+                    unreadCount: firstMessage.senderId !== currentUser.id ? 1 : 0
                 };
                 return [newContactWithMsg, ...prev].sort(sortContacts);
             });
         
-            const isFromSelf = firstMessage.senderId === currentUser.id;
-            if (!isFromSelf) {
-                const privateChatId = firstMessage.chatId.split('-').sort().join('-');
-                setUnreadCounts(prev => ({ ...prev, [privateChatId]: 1 }));
-                
-                const isMuted = localStorage.getItem('global_chat_muted') === 'true'; 
-                if (!isMuted) {
-                    audioRef.current?.play().catch(e => console.warn("Audio play failed:", e));
-                }
+            if (firstMessage.senderId !== currentUser.id) {
+                audioRef.current?.play().catch(e => console.warn("Audio play failed:", e));
             }
         };
         
-        const handleProfileUpdate = (updatedUser: Partial<User>) => {
+        const handleProfileUpdate = (updatedUser: Partial<User & {avatarUrl?: string}>) => {
              if (updatedUser.id === currentUser.id) updateCurrentUser({ ...currentUser, ...updatedUser});
              setContacts(prev => prev.map(c => c.id === updatedUser.id ? {...c, ...updatedUser } : c));
              setViewingProfile(prev => (prev && prev.id === updatedUser.id) ? { ...prev, ...updatedUser } : prev);
@@ -268,12 +254,11 @@ const Sidebar: React.FC<{
 
         const handleUnreadCleared = ({ chatId }: { chatId: string }) => {
             const privateChatId = chatId.includes('-') ? chatId.split('-').sort().join('-') : chatId;
-            setUnreadCounts(prev => {
-                if (!prev[privateChatId]) return prev;
-                const newCounts = { ...prev };
-                delete newCounts[privateChatId];
-                return newCounts;
-            });
+            setContacts(prev => prev.map(c => {
+                const cChatId = (c.id !== GLOBAL_CHAT_ID && currentUser) ? [currentUser.id, c.id].sort().join('-') : GLOBAL_CHAT_ID;
+                if (cChatId === privateChatId) return { ...c, unreadCount: 0 };
+                return c;
+            }));
         };
         
         const handleChatStateUpdated = (data: { chatId: string, is_muted: boolean }) => {

@@ -168,17 +168,21 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         if (!pc) return;
         
         try {
+            // 1. Get local media and add tracks
             localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = localStreamRef.current;
             }
             
+            // 2. Set up E2EE now that tracks are added
             await setupE2EE(pc, true);
 
+            // 3. Create and set local description
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
 
+            // 4. Send the offer
             socket.emit('call:start', { to: partner.id, from: currentUser, offer });
             setInCall(true);
         } catch (err) {
@@ -218,19 +222,24 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         if (!pc) return;
         
         try {
+            // 1. Get local media and add tracks
             localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = localStreamRef.current;
             }
 
+            // 2. Set the remote description
             await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
             
+            // 3. Set up E2EE now that remote description is set
             await setupE2EE(pc, false);
             
+            // 4. Create and set local description
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             
+            // 5. Send the answer
             socket.emit('webrtc:answer', { to: incomingCall.caller.id, answer });
             
             setInCall(true);

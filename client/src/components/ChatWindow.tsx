@@ -10,7 +10,7 @@ import Avatar from './Avatar';
 import ViewProfileModal from './ViewProfileModal';
 import MediaUploadPreviewModal from './MediaUploadPreviewModal';
 import MessageContextMenu, { Action } from './MessageContextMenu';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import MediaViewerModal from './MediaViewerModal';
 import useAutosizeTextArea from '../hooks/useAutosizeTextArea';
 import GlobalChatInfoModal from './GlobalChatInfoModal';
@@ -149,7 +149,7 @@ const ChatWindow: React.FC<{
     const { socket } = useSocket();
     const { t } = useI18n();
     const { mode } = useTheme();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatUsers, setChatUsers] = useState<Record<string, User>>({});
@@ -570,10 +570,11 @@ const ChatWindow: React.FC<{
         if (!editingMessage || !newMessage.trim()) return;
         try {
             await api.editMessage(editingMessage.id, { content: newMessage.trim() });
-            setEditingMessage(null);
-            setNewMessage('');
         } catch {
             toast.error(t('toast.editError'));
+        } finally {
+            setEditingMessage(null);
+            setNewMessage('');
         }
     };
     
@@ -760,6 +761,8 @@ const ChatWindow: React.FC<{
                                       onEmojiClick={(e) => setNewMessage(p => p + e.emoji)} 
                                       theme={mode === 'dark' ? Theme.DARK : Theme.LIGHT}
                                       searchDisabled={isMobile}
+                                      previewConfig={{ showPreview: !isMobile }}
+                                      width={isMobile ? '100%' : 350}
                                    />
                                 </div>
                             )}
