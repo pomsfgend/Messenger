@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './useAuth';
+import { initializeCallSystem } from './useCall';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -17,15 +17,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     // Only establish a connection if there's a logged-in user.
-    // The dependency array `[!!currentUser]` ensures this effect only re-runs
-    // when the user logs in or logs out, not on every profile data change.
-    // This is a CRITICAL FIX to prevent constant reconnections.
     if (currentUser) {
       const newSocket = io({
         withCredentials: true,
       });
 
       setSocket(newSocket);
+      initializeCallSystem(newSocket); // Initialize the call system with the new socket
 
       // Clean up the connection when the component unmounts or user logs out.
       return () => {

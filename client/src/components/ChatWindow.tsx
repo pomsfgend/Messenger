@@ -21,8 +21,7 @@ import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { useTheme } from '../hooks/useTheme';
 import VideoRecorderModal from './VideoRecorderModal';
 import { FaVideo, FaMicrophone, FaEllipsisV, FaBell, FaBellSlash, FaSmile } from 'react-icons/fa';
-import { useCall } from '../hooks/useCall';
-import IncomingCallToast from './IncomingCallToast';
+import { startCall } from '../hooks/useCall';
 import { isMobile } from 'react-device-detect';
 import ForwardMessageModal from './ForwardMessageModal';
 
@@ -194,8 +193,6 @@ const ChatWindow: React.FC<{
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
-    const localVideoRef = useRef<HTMLVideoElement>(null);
-    const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
     const chatMenuRef = useRef<HTMLDivElement>(null);
 
@@ -204,18 +201,6 @@ const ChatWindow: React.FC<{
     
     const messagesRef = useRef(messages);
     useEffect(() => { messagesRef.current = messages; }, [messages]);
-
-    const call = useCall({ localVideoRef, remoteVideoRef, chatId: chatId || null });
-    
-    useEffect(() => {
-        if (call.incomingCall) {
-            IncomingCallToast({
-                caller: call.incomingCall.caller,
-                onAccept: call.acceptCall,
-                onReject: call.rejectCall,
-            });
-        }
-    }, [call.incomingCall, call.acceptCall, call.rejectCall]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -702,7 +687,7 @@ const ChatWindow: React.FC<{
                     )}
                 </div>
                 <div className="flex items-center gap-2 relative">
-                    {partner && <button onClick={() => call.startCall(partner)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaVideo/></button>}
+                    {partner && <button onClick={() => startCall(partner)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaVideo/></button>}
                     <div ref={chatMenuRef} className="relative">
                          <button onClick={() => setIsChatMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaEllipsisV/></button>
                          {isChatMenuOpen && (

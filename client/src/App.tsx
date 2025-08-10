@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, lazy, Suspense, useRef, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import LoginPage from './pages/LoginPage';
@@ -14,6 +14,10 @@ import * as api from './services/api';
 import { useI18n } from './hooks/useI18n';
 import { useSocket } from './hooks/useSocket';
 import ParticleBackground from './components/ParticleBackground';
+import { useCallState, setVideoRefs, acceptCall, rejectCall, endCall, toggleMute, toggleCamera } from './hooks/useCall';
+import IncomingCallToast from './components/IncomingCallToast';
+import { User } from './types';
+import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, FaPhoneSlash } from 'react-icons/fa';
 
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 
@@ -31,6 +35,83 @@ const urlBase64ToUint8Array = (base64String: string) => {
     }
     return outputArray;
 };
+
+
+// --- NEW CALL INTERFACE COMPONENT ---
+const CallInterface: React.FC = () => {
+    const { callStatus, localStream, remoteStream, peer, incomingCall, isMuted, isCameraOff } = useCallState();
+    const localRef = useRef<HTMLVideoElement>(null);
+    const remoteRef = useRef<HTMLVideoElement>(null);
+    const [callTime, setCallTime] = useState(0);
+
+    useEffect(() => {
+        setVideoRefs({ local: localRef, remote: remoteRef });
+    }, []);
+
+    useEffect(() => {
+        if (localRef.current) localRef.current.srcObject = localStream;
+        if (remoteRef.current) remoteRef.current.srcObject = remoteStream;
+    }, [localStream, remoteStream]);
+    
+    useEffect(() => {
+        if (callStatus === 'incoming' && incomingCall) {
+            IncomingCallToast({ caller: incomingCall.caller, onAccept: acceptCall, onReject: rejectCall });
+        }
+    }, [callStatus, incomingCall]);
+
+     useEffect(() => {
+        let timer: number;
+        if (callStatus === 'in-call') {
+            setCallTime(0);
+            timer = window.setInterval(() => {
+                setCallTime(prev => prev + 1);
+            }, 1000);
+        }
+        return () => {
+            if (timer) clearInterval(timer);
+        };
+    }, [callStatus]);
+    
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const peerInfo: User | null = peer || incomingCall?.caller || null;
+
+    if (callStatus === 'idle' || callStatus === 'failed') {
+        return null;
+    }
+    
+    // Incoming call toast is handled separately, so we only show full UI for active calls.
+    if (callStatus === 'incoming') {
+        return null;
+    }
+
+    return (
+        <div className="call-interface">
+            <video ref={remoteRef} autoPlay playsInline className="remote-video-fullscreen" />
+            <video ref={localRef} autoPlay playsInline muted className="local-video-pip" />
+            
+            <div className="call-info-overlay">
+                {peerInfo && (
+                    <div className="bg-black/50 rounded-full py-2 px-6 inline-block text-white text-center">
+                        <p className="font-bold text-xl">{peerInfo.name}</p>
+                        <p className="text-sm">{callStatus === 'in-call' ? formatTime(callTime) : 'Calling...'}</p>
+                    </div>
+                )}
+            </div>
+            
+            <div className="call-controls-bar">
+                <button onClick={toggleMute} className={`call-control-btn ${isMuted ? 'danger' : ''}`}><FaMicrophoneSlash className={`w-6 h-6 ${isMuted ? 'hidden' : 'inline'}`} /><FaMicrophone className={`w-6 h-6 ${isMuted ? 'inline' : 'hidden'}`} /></button>
+                <button onClick={toggleCamera} className={`call-control-btn ${isCameraOff ? 'danger' : ''}`}><FaVideoSlash className={`w-6 h-6 ${isCameraOff ? 'hidden' : 'inline'}`} /><FaVideo className={`w-6 h-6 ${isCameraOff ? 'inline' : 'hidden'}`} /></button>
+                <button onClick={endCall} className="call-control-btn danger"><FaPhoneSlash className="w-6 h-6" /></button>
+            </div>
+        </div>
+    );
+};
+
 
 const App: React.FC = () => {
   const { mode } = useTheme();
@@ -187,6 +268,7 @@ const MessengerLayout: React.FC = () => {
   return (
     <div className={`relative w-full h-[var(--app-height)] ${isAdminPage ? '' : 'overflow-hidden'}`}>
       <ParticleBackground />
+      <CallInterface /> 
       <div className="relative z-10 w-full h-full">
         {/* The router for the main application, paths are relative to /app */}
         <ReactRouterDOM.Routes>
