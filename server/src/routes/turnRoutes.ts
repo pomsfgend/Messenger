@@ -1,10 +1,10 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import crypto from 'crypto';
 import Turn from 'node-turn';
 
 const router = express.Router();
 
-router.get('/', (req: Request, res: Response) => {
+router.get('/', (req: express.Request, res: express.Response) => {
     const turnServer: Turn = req.app.get('turnServer');
     const publicIp: string = req.app.get('publicIp');
 

@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -32,7 +32,7 @@ const privacySensitiveFields = `
 const allUserFieldsForCurrentUser = 'id, username, name, uniqueId, gender, dob, createdAt, telegram_id as telegramId, phone_number as phoneNumber, is_anonymous as isAnonymous, avatar_url as avatarUrl, profile_setup as profileSetup, role, is_banned as isBanned, ban_reason as banReason, ban_expires_at as banExpiresAt, google_id as googleId, mute_expires_at as muteExpiresAt, mute_reason as muteReason, last_seen as lastSeen, profile_color, message_color, description, profile_emoji, profile_emoji_density, profile_emoji_rotation, privacy_show_phone, privacy_show_telegram, privacy_show_dob, privacy_show_description, privacy_show_last_seen, privacy_show_typing, is_2fa_enabled';
 
 
-router.get('/me/chats', async (req: Request, res: Response) => {
+router.get('/me/chats', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const db = getDb();
     try {
@@ -79,9 +79,18 @@ router.get('/me/chats', async (req: Request, res: Response) => {
             LEFT JOIN user_chat_states ucs ON ucs.userId = ? AND (
                 ucs.chatId = ? || '-' || p.id OR ucs.chatId = p.id || '-' || ?
             )
-            WHERE p.id != ?
+            LEFT JOIN user_hidden_chats uhc ON uhc.userId = ? AND (
+                uhc.chatId = ? || '-' || p.id OR uhc.chatId = p.id || '-' || ?
+            )
+            WHERE p.id != ? AND uhc.chatId IS NULL
             ORDER BY lm.timestamp DESC;
-        `, [userId, userId, `${userId}-%`, `%-`+userId, userId, userId, userId, userId, userId, userId]);
+        `, [
+            userId, userId, `${userId}-%`, `%-`+userId, 
+            userId, userId, 
+            userId, userId, userId,
+            userId, userId, userId,
+            userId
+        ]);
         
         const chatsWithBooleanOnline = chats.map(c => ({...c, isOnline: !!c.isOnline}));
         res.json(chatsWithBooleanOnline);
@@ -93,7 +102,7 @@ router.get('/me/chats', async (req: Request, res: Response) => {
 });
 
 
-router.get('/search', async (req: Request, res: Response) => {
+router.get('/search', async (req: express.Request, res: express.Response) => {
     const { q, uniqueId } = req.query;
     const db = getDb();
     try {
@@ -118,7 +127,7 @@ router.get('/search', async (req: Request, res: Response) => {
     }
 });
 
-router.get('/profile/:identifier', async (req: Request, res: Response) => {
+router.get('/profile/:identifier', async (req: express.Request, res: express.Response) => {
     const { identifier } = req.params;
     const db = getDb();
     try {
@@ -133,7 +142,7 @@ router.get('/profile/:identifier', async (req: Request, res: Response) => {
     }
 });
 
-router.get('/online', async (req: Request, res: Response) => {
+router.get('/online', async (req: express.Request, res: express.Response) => {
     const db = getDb();
     try {
         const users = await db.all(`SELECT id, name, avatar_url as avatarUrl, uniqueId, profile_color, message_color FROM users WHERE last_seen IS NULL`);
@@ -143,7 +152,7 @@ router.get('/online', async (req: Request, res: Response) => {
     }
 });
 
-router.put('/me', async (req: Request, res: Response) => {
+router.put('/me', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { name, uniqueId, dob, phoneNumber, telegramId, description, profile_color, message_color, profile_emoji, emojiDensity, emojiRotation } = req.body;
     const db = getDb();
@@ -179,7 +188,7 @@ router.put('/me', async (req: Request, res: Response) => {
     }
 });
 
-router.put('/me/privacy', async (req: Request, res: Response) => {
+router.put('/me/privacy', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const settings = req.body;
     const db = getDb();
@@ -212,7 +221,7 @@ router.put('/me/privacy', async (req: Request, res: Response) => {
     }
 });
 
-router.post('/me/avatar', upload, async (req: Request, res: Response) => {
+router.post('/me/avatar', upload, async (req: express.Request, res: express.Response) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
     }
@@ -251,7 +260,7 @@ router.post('/me/avatar', upload, async (req: Request, res: Response) => {
     }
 });
 
-router.get('/me/avatars', async (req: Request, res: Response) => {
+router.get('/me/avatars', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const db = getDb();
     try {
@@ -262,7 +271,7 @@ router.get('/me/avatars', async (req: Request, res: Response) => {
     }
 });
 
-router.put('/me/avatar/:avatarId', async (req: Request, res: Response) => {
+router.put('/me/avatar/:avatarId', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { avatarId } = req.params;
     const db = getDb();
@@ -285,7 +294,7 @@ router.put('/me/avatar/:avatarId', async (req: Request, res: Response) => {
     }
 });
 
-router.delete('/me/avatar/:avatarId', async (req: Request, res: Response) => {
+router.delete('/me/avatar/:avatarId', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { avatarId } = req.params;
     const db = getDb();
@@ -319,7 +328,7 @@ router.delete('/me/avatar/:avatarId', async (req: Request, res: Response) => {
     }
 });
 
-router.put('/me/password', async (req: Request, res: Response) => {
+router.put('/me/password', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { currentPassword, newPassword } = req.body;
     const db = getDb();
@@ -346,7 +355,7 @@ router.put('/me/password', async (req: Request, res: Response) => {
     }
 });
 
-router.delete('/me', async (req: Request, res: Response) => {
+router.delete('/me', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const db = getDb();
     
@@ -371,7 +380,7 @@ router.delete('/me', async (req: Request, res: Response) => {
     }
 });
 
-router.put('/me/chats/:chatId/state', async (req: Request, res: Response) => {
+router.put('/me/chats/:chatId/state', async (req: express.Request, res: express.Response) => {
     const userId = req.user!.id;
     const { chatId } = req.params;
     const { is_muted } = req.body;
@@ -396,6 +405,33 @@ router.put('/me/chats/:chatId/state', async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Failed to update chat state:", error);
         res.status(500).json({ message: 'Failed to update chat state.' });
+    }
+});
+
+router.post('/me/chats/:chatId/leave', async (req: express.Request, res: express.Response) => {
+    const userId = req.user!.id;
+    const { chatId } = req.params;
+    const db = getDb();
+
+    try {
+        // We only allow leaving private chats this way
+        if (!chatId.includes('-')) {
+            return res.status(400).json({ message: 'Cannot leave global or group chats this way.' });
+        }
+
+        await db.run(
+            `INSERT INTO user_hidden_chats (userId, chatId) VALUES (?, ?) ON CONFLICT(userId, chatId) DO NOTHING`,
+            [userId, chatId]
+        );
+        
+        // Optionally, emit an event so other clients for this user update their UI
+        const io = req.app.get('io') as SocketIOServer;
+        io.to(userId).emit('chatHidden', { chatId });
+
+        res.json({ message: 'You have left the chat.' });
+    } catch (error) {
+        console.error("Failed to leave chat:", error);
+        res.status(500).json({ message: 'Failed to leave chat.' });
     }
 });
 

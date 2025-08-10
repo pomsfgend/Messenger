@@ -1,139 +1,73 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSocket } from './useSocket';
-import * as api from '../services/api';
-import { turnServerConfig } from '../turnConfig';
-import type { User } from '../types';
+// useWebRTC.ts (упрощённый, адаптируй импорты)
+import { useRef, useEffect } from "react";
 
-export const useWebRTC = (partner: User, onConnectionStateChange: (state: RTCIceConnectionState) => void) => {
-    const { socket } = useSocket();
-    const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-    const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-    const isCallerRef = useRef(false);
+export function useWebRTC({ onRemoteStream, signalingSocket }: { onRemoteStream: (stream: MediaStream) => void, signalingSocket: any }) {
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
 
-    const initializeMedia = useCallback(async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-                audio: true,
-            });
-            setLocalStream(stream);
-            return stream;
-        } catch (error) {
-            console.error("Error accessing media devices.", error);
-            // Handle error (e.g., show a message to the user)
-            return null;
+  useEffect(() => {
+    // Инициализация PeerConnection
+    pcRef.current = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    });
+
+    pcRef.current.ontrack = (ev) => {
+      onRemoteStream && onRemoteStream(ev.streams[0]);
+    };
+
+    // не закрываем pc при потере видимости страницы — только при явном hangup
+    function handleVisibility() {
+      if (document.hidden) {
+        // НЕ останавливаем треки, просто делаем их enabled = true (чтобы не терять)
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach(t => t.enabled = true);
         }
-    }, []);
+      } else {
+        if (localStreamRef.current) {
+          // при возвращении убедимся, что треки включены
+          localStreamRef.current.getTracks().forEach(t => t.enabled = true);
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
 
-    const createPeerConnection = useCallback(async (stream: MediaStream) => {
-        const turnCredentials = await api.getTurnCredentials();
-        const iceServers = [{
-            ...turnServerConfig,
-            username: turnCredentials.username,
-            credential: turnCredentials.credential,
-        }];
-
-        const pc = new RTCPeerConnection({
-            iceServers,
-            iceTransportPolicy: 'relay', // Force TURN relay for anonymity
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      // освобождаем ресурсы только если компонент уходит
+      if (pcRef.current) {
+        pcRef.current.getSenders().forEach(s => {
+          try { s.track?.stop(); } catch (e) {}
         });
-
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-        pc.ontrack = (event) => {
-            setRemoteStream(event.streams[0]);
-        };
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket?.emit('video:ice-candidate', {
-                    targetId: partner.id,
-                    candidate: event.candidate,
-                });
-            }
-        };
-        
-        pc.oniceconnectionstatechange = () => {
-            onConnectionStateChange(pc.iceConnectionState);
-        };
-
-        peerConnectionRef.current = pc;
-    }, [socket, partner.id, onConnectionStateChange]);
-
-    // Cleanup function
-    const closeConnection = useCallback(() => {
-        peerConnectionRef.current?.close();
-        peerConnectionRef.current = null;
-        localStream?.getTracks().forEach(track => track.stop());
-        setLocalStream(null);
-        setRemoteStream(null);
-    }, [localStream]);
-
-    // Effect for handling signaling messages from socket
-    useEffect(() => {
-        if (!socket || !peerConnectionRef.current) return;
-
-        const pc = peerConnectionRef.current;
-        
-        const handleOffer = async (data: { senderId: string, offer: RTCSessionDescriptionInit }) => {
-            if (data.senderId !== partner.id) return;
-            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('video:answer', { targetId: partner.id, answer });
-        };
-
-        const handleAnswer = (data: { senderId: string, answer: RTCSessionDescriptionInit }) => {
-            if (data.senderId !== partner.id) return;
-            pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-        };
-
-        const handleIceCandidate = (data: { senderId: string, candidate: RTCIceCandidateInit }) => {
-            if (data.senderId !== partner.id) return;
-            pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-        };
-        
-        socket.on('video:offer', handleOffer);
-        socket.on('video:answer', handleAnswer);
-        socket.on('video:ice-candidate', handleIceCandidate);
-
-        return () => {
-            socket.off('video:offer', handleOffer);
-            socket.off('video:answer', handleAnswer);
-            socket.off('video:ice-candidate', handleIceCandidate);
-        };
-    }, [socket, partner.id]);
-
-    const startCall = useCallback(async () => {
-        isCallerRef.current = true;
-        const stream = await initializeMedia();
-        if (stream) {
-            await createPeerConnection(stream);
-            const pc = peerConnectionRef.current;
-            if (pc) {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                socket?.emit('video:offer', { targetId: partner.id, offer });
-            }
-        }
-    }, [initializeMedia, createPeerConnection, socket, partner.id]);
-
-    const answerCall = useCallback(async () => {
-        isCallerRef.current = false;
-        const stream = await initializeMedia();
-        if (stream) {
-            await createPeerConnection(stream);
-        }
-    }, [initializeMedia, createPeerConnection]);
-
-    const toggleAudio = (enabled: boolean) => {
-        localStream?.getAudioTracks().forEach(track => track.enabled = enabled);
+        pcRef.current.close();
+      }
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(t => t.stop());
+      }
     };
+  }, [onRemoteStream]);
 
-    const toggleVideo = (enabled: boolean) => {
-        localStream?.getVideoTracks().forEach(track => track.enabled = enabled);
-    };
+  async function startLocalStream(constraints = { video: true, audio: true }) {
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    localStreamRef.current = stream;
+    // add tracks to pc
+    stream.getTracks().forEach(track => pcRef.current?.addTrack(track, stream));
+    return stream;
+  }
 
-    return { localStream, remoteStream, startCall, answerCall, closeConnection, toggleAudio, toggleVideo };
-};
+  async function hangup() {
+    // здесь выполняем явное завершение — отправляем сигнал на сервер и закрываем
+    try {
+      signalingSocket.emit('hangup'); // если есть
+    } finally {
+      pcRef.current?.getSenders().forEach(s => s.track?.stop());
+      pcRef.current?.close();
+      pcRef.current = null;
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(t => t.stop());
+        localStreamRef.current = null;
+      }
+    }
+  }
+
+  return { startLocalStream, hangup, pcRef, localStreamRef };
+}

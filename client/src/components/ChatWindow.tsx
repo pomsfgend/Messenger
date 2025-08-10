@@ -587,6 +587,19 @@ const ChatWindow: React.FC<{
         }
     };
 
+    const handleLeaveChat = async () => {
+        if (!chatId || !chatId.includes('-')) return;
+        if (window.confirm("Вы уверены, что хотите покинуть этот чат? Он будет скрыт из вашего списка.")) {
+            try {
+                await api.leaveChat(chatId);
+                toast.success("Вы покинули чат.");
+                navigate('/app');
+            } catch (error) {
+                toast.error("Не удалось покинуть чат.");
+            }
+        }
+    };
+
     const onContextMenuAction = (action: Action) => {
         action.action();
         setContextMenu(null);
@@ -681,7 +694,7 @@ const ChatWindow: React.FC<{
                         </div>
                     ) : (
                         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setIsChatInfoModalOpen(true)}>
-                            <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
+                            <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
                             <p className="font-semibold">{t('sidebar.globalChat')}</p>
                         </div>
                     )}
@@ -696,6 +709,11 @@ const ChatWindow: React.FC<{
                                      {isMuted ? <FaBell/> : <FaBellSlash/>}
                                      <span>{isMuted ? t('chat.unmute') : t('chat.mute')}</span>
                                  </button>
+                                 {chatId && chatId.includes('-') && (
+                                     <button onClick={handleLeaveChat} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                         <span>Покинуть чат</span>
+                                     </button>
+                                 )}
                              </div>
                          )}
                     </div>

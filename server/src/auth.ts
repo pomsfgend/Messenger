@@ -1,11 +1,11 @@
-import { Request, Response, NextFunction } from 'express';
+import express, { NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getDb } from './db';
 import { config } from './config';
 import type { User } from './types';
 import './types'; // Ensures declaration merging for req.user is picked up
 
-export const protect = async (req: Request, res: Response, next: NextFunction) => {
+export const protect = async (req: express.Request, res: express.Response, next: NextFunction) => {
     const token = req.cookies.token;
 
     if (!token) {
@@ -50,7 +50,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
     }
 };
 
-export const isModeratorOrAdmin = (req: Request, res: Response, next: NextFunction) => {
+export const isModeratorOrAdmin = (req: express.Request, res: express.Response, next: NextFunction) => {
     if (req.user && (req.user.role === 'admin' || req.user.role === 'moderator')) {
         next();
     } else {

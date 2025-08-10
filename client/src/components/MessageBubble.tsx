@@ -6,6 +6,7 @@ import Avatar from './Avatar';
 import InlineVideoCirclePlayer from './InlineVideoCirclePlayer';
 import { useSocket } from '../hooks/useSocket';
 import AudioPlayer from './AudioPlayer';
+import { formatTime } from '../helpers/time';
 
 const MediaPlaceholder: React.FC<{ type: Message['type'] }> = ({ type }) => {
     const icon = {
@@ -270,7 +271,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                             </div>
                         )}
                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 px-2">
-                             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                             {formatTime(message.timestamp)}
                         </p>
                      </div>
                 </div>
@@ -384,7 +385,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     
                     <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 mt-1 px-2">
                          {message.isEdited && <span className="mr-1">{t('chat.edited')}</span>}
-                         <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                         <span>{formatTime(message.timestamp)}</span>
                          {isOwn && (
                              <span className={`read-receipt read-receipt-own ${message.readBy && message.readBy.length > 0 ? 'read' : ''}`}>
                                 {message.readBy && message.readBy.length > 0 ? '✓✓' : '✓'}

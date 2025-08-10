@@ -9,7 +9,7 @@ import Avatar from '../components/Avatar';
 import './AdminPage.css';
 import { useDraggable } from '../hooks/useDraggable';
 import { useResizable } from '../hooks/useResizable';
-import { FaUsers, FaWifi, FaGavel } from 'react-icons/fa';
+import { Users, Wifi, Gavel } from 'lucide-react';
 
 const StatCard: React.FC<{ title: string, value: string | number, icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="stat-card glass">
@@ -99,9 +99,9 @@ const AdminPage: React.FC = () => {
             </div>
 
             <div className="stats-grid-admin">
-                <StatCard title="Всего пользователей" value={stats.total} icon={<FaUsers />} />
-                <StatCard title="Сейчас онлайн" value={stats.online} icon={<FaWifi />} />
-                <StatCard title="Забаненные" value={stats.banned} icon={<FaGavel />} />
+                <StatCard title="Всего пользователей" value={stats.total} icon={<Users />} />
+                <StatCard title="Сейчас онлайн" value={stats.online} icon={<Wifi />} />
+                <StatCard title="Забаненные" value={stats.banned} icon={<Gavel />} />
             </div>
 
             <div className="admin-table-container glass">

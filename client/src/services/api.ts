@@ -46,6 +46,7 @@ export const getProfileByUniqueId = (uniqueId: string): Promise<User> => fetchAp
 export const deleteMyAccount = (): Promise<{ message: string }> => fetchApi('/api/users/me', { method: 'DELETE' });
 export const getOnlineUsers = (): Promise<Pick<User, 'id' | 'name' | 'avatarUrl' | 'uniqueId' | 'profile_color' | 'message_color'>[]> => fetchApi('/api/users/online');
 export const updateChatState = (chatId: string, state: { is_muted: boolean }): Promise<{ message: string }> => fetchApi(`/api/users/me/chats/${chatId}/state`, { method: 'PUT', body: JSON.stringify(state) });
+export const leaveChat = (chatId: string): Promise<{ message: string }> => fetchApi(`/api/users/me/chats/${chatId}/leave`, { method: 'POST' });
 
 // --- Avatar API (New & Overhauled) ---
 export const uploadAvatar = (formData: FormData): Promise<AvatarData> => fetchApi('/api/users/me/avatar', { method: 'POST', body: formData });
@@ -139,7 +140,7 @@ export const uploadChatFile = (
   }
 };
 
-export const editMessage = (messageId: string, payload: { content: string, mediaUrl?: string, mediaMimetype?: string, type?: MessageType }): Promise<{ message: string }> => fetchApi(`/api/messages/${messageId}`, { method: 'PUT', body: JSON.stringify(payload) });
+export const editMessage = (messageId: string, payload: { content: string, mediaUrl?: string, mediaMimetype?: string, type?: MessageType }): Promise<{ message: string }> => fetchApi(`/api/messages/${messageId}`, { method: 'PATCH', body: JSON.stringify(payload) });
 export const deleteMessage = (messageId: string): Promise<{ message: string }> => fetchApi(`/api/messages/${messageId}`, { method: 'DELETE' });
 export const reactToMessage = (messageId: string, reaction: string): Promise<{ message: string }> => fetchApi(`/api/messages/${messageId}/react`, { method: 'POST', body: JSON.stringify({ reaction }) });
 export const getChatMedia = (chatId: string, type?: MessageType | 'all' | 'image' | 'file' | 'audio'): Promise<Message[]> => {

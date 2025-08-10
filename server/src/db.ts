@@ -1,4 +1,3 @@
-
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 
@@ -198,6 +197,16 @@ export const initializeDb = async () => {
         chatId TEXT NOT NULL,
         is_muted INTEGER DEFAULT 0 NOT NULL,
         unread_count INTEGER DEFAULT 0 NOT NULL,
+        PRIMARY KEY (userId, chatId),
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `);
+
+    // New table for hiding chats (leaving)
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS user_hidden_chats (
+        userId TEXT NOT NULL,
+        chatId TEXT NOT NULL,
         PRIMARY KEY (userId, chatId),
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       );

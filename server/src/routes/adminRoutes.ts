@@ -1,4 +1,5 @@
-import express, { Router, Request, Response, NextFunction } from 'express';
+
+import express, { Router, NextFunction } from 'express';
 import { getDb } from '../db';
 import { isModeratorOrAdmin } from '../auth';
 import fs from 'fs/promises';
@@ -18,7 +19,7 @@ const superAdminUniqueIds = process.env.ADMIN_IDS?.split(',').map(id => id.trim(
 
 
 // GET /api/admin/users
-router.get('/users', isModeratorOrAdmin, async (req: Request, res: Response) => {
+router.get('/users', isModeratorOrAdmin, async (req: express.Request, res: express.Response) => {
     const db = getDb();
     try {
         const users = await db.all('SELECT id, username, name, uniqueId, role, is_banned, ban_reason, ban_expires_at, createdAt, mute_expires_at, mute_reason, avatar_url as avatarUrl FROM users ORDER BY createdAt DESC');
@@ -29,7 +30,7 @@ router.get('/users', isModeratorOrAdmin, async (req: Request, res: Response) => 
 });
 
 // Middleware to check if a user can perform an action on another user.
-const checkPermissions = async (req: Request, res: Response, next: NextFunction) => {
+const checkPermissions = async (req: express.Request, res: express.Response, next: NextFunction) => {
     const { userId: targetUserId } = req.params;
     const requester = req.user!;
     
@@ -72,7 +73,7 @@ const checkPermissions = async (req: Request, res: Response, next: NextFunction)
 
 
 // PUT /api/admin/users/:userId/role
-router.put('/users/:userId/role', isModeratorOrAdmin, checkPermissions, async (req: Request, res: Response) => {
+router.put('/users/:userId/role', isModeratorOrAdmin, checkPermissions, async (req: express.Request, res: express.Response) => {
     const { userId } = req.params;
     const { role } = req.body;
 
@@ -96,7 +97,7 @@ router.put('/users/:userId/role', isModeratorOrAdmin, checkPermissions, async (r
 });
 
 // PUT /api/admin/users/:userId/ban
-router.put('/users/:userId/ban', isModeratorOrAdmin, checkPermissions, async (req: Request, res: Response) => {
+router.put('/users/:userId/ban', isModeratorOrAdmin, checkPermissions, async (req: express.Request, res: express.Response) => {
     const { userId } = req.params;
     const { is_banned, ban_reason, ban_duration_hours } = req.body;
 
@@ -128,7 +129,7 @@ router.put('/users/:userId/ban', isModeratorOrAdmin, checkPermissions, async (re
     }
 });
 
-router.put('/users/:userId/mute', isModeratorOrAdmin, checkPermissions, async (req: Request, res: Response) => {
+router.put('/users/:userId/mute', isModeratorOrAdmin, checkPermissions, async (req: express.Request, res: express.Response) => {
     const { userId } = req.params;
     const { is_muted, mute_reason, mute_duration_hours } = req.body;
     
@@ -161,7 +162,7 @@ router.put('/users/:userId/mute', isModeratorOrAdmin, checkPermissions, async (r
     }
 });
 
-router.delete('/users/:userId', isModeratorOrAdmin, checkPermissions, async (req: Request, res: Response) => {
+router.delete('/users/:userId', isModeratorOrAdmin, checkPermissions, async (req: express.Request, res: express.Response) => {
     const { userId } = req.params;
     const db = getDb();
 
