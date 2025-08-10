@@ -114,33 +114,6 @@
 }
 
 @layer components {
-    /* NEW: Fullscreen Video Call Interface */
-    .call-interface {
-      @apply fixed inset-0 w-full h-full bg-slate-900 z-[2000] flex flex-col;
-    }
-    .remote-video-fullscreen {
-      @apply absolute inset-0 w-full h-full object-cover;
-    }
-    .local-video-pip {
-      @apply absolute bottom-28 right-5 w-32 md:w-48 aspect-[3/4] bg-slate-800 rounded-lg shadow-2xl border-2 border-white/50;
-    }
-    .call-info-overlay {
-      @apply absolute top-5 left-0 right-0 flex justify-center;
-    }
-    .call-controls-bar {
-      @apply absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center justify-center gap-6 p-4 bg-black/40 rounded-full backdrop-blur-md;
-    }
-    .call-control-btn {
-      @apply w-14 h-14 rounded-full flex items-center justify-center text-white transition-all duration-200 bg-white/20 hover:bg-white/30;
-    }
-    .call-control-btn.danger {
-      @apply bg-red-500 hover:bg-red-600;
-    }
-    .call-control-btn:hover {
-      transform: translateY(-2px);
-    }
-
-
     /* Message Skeleton Styles */
     .skeleton-bubble {
         @apply p-3 rounded-lg bg-slate-200 dark:bg-slate-700;

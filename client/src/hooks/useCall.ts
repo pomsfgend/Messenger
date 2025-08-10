@@ -14,6 +14,7 @@ interface CallState {
     isCameraOff: boolean;
     peer: User | null;
     incomingCall: { caller: User; offer: RTCSessionDescriptionInit } | null;
+    cameraFacingMode: 'user' | 'environment';
 }
 
 const initialState: CallState = {
@@ -24,6 +25,7 @@ const initialState: CallState = {
     isCameraOff: false,
     peer: null,
     incomingCall: null,
+    cameraFacingMode: 'user',
 };
 
 let state = { ...initialState };
@@ -65,12 +67,22 @@ export const initializeCallSystem = (socket: ReturnType<typeof useSocket>['socke
 export const setVideoRefs = (refs: { local: RefObject<HTMLVideoElement>, remote: RefObject<HTMLVideoElement> }) => {
     localVideoRef = refs.local;
     remoteVideoRef = refs.remote;
+     // Re-assign streams if they already exist when refs are set
+    if (localVideoRef?.current && state.localStream) {
+        localVideoRef.current.srcObject = state.localStream;
+    }
+    if (remoteVideoRef?.current && state.remoteStream) {
+        remoteVideoRef.current.srcObject = state.remoteStream;
+    }
 };
 
 // --- ACTIONS ---
 
 const endCallCleanup = () => {
     if (pcRef) {
+        pcRef.onicecandidate = null;
+        pcRef.ontrack = null;
+        pcRef.oniceconnectionstatechange = null;
         pcRef.close();
         pcRef = null;
     }
@@ -95,9 +107,6 @@ const setupPeerConnection = async (peerId: string) => {
     };
 
     pc.ontrack = (event) => {
-        if (remoteVideoRef?.current) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-        }
         setState(s => ({ ...s, remoteStream: event.streams[0] }));
     };
 
@@ -116,9 +125,6 @@ export const startCall = async (peerToCall: User) => {
         const pc = await setupPeerConnection(peerToCall.id);
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-        if (localVideoRef?.current) {
-            localVideoRef.current.srcObject = stream;
-        }
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
         setState(s => ({ ...s, localStream: stream }));
 
@@ -129,32 +135,35 @@ export const startCall = async (peerToCall: User) => {
 
     } catch (err) {
         console.error("Failed to start call:", err);
+        toast.error("Could not start call. Check camera/mic permissions.");
         setState(s => ({ ...s, callStatus: "failed" }));
         endCallCleanup();
     }
 };
 
 export const acceptCall = async () => {
-    if (!socketInstance || !state.incomingCall || !state.peer) return;
-
-    setState(s => ({ ...s, callStatus: 'in-call', incomingCall: null }));
+    const { incomingCall } = state;
+    if (!socketInstance || !incomingCall) return;
+    
+    // Cache the call data before updating the state
+    const { offer, caller } = incomingCall;
+    
+    setState(s => ({ ...s, callStatus: 'in-call', incomingCall: null, peer: caller }));
     try {
-        const pc = await setupPeerConnection(state.peer.id);
-        await pc.setRemoteDescription(new RTCSessionDescription(state.incomingCall.offer));
+        const pc = await setupPeerConnection(caller.id);
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        if (localVideoRef?.current) {
-            localVideoRef.current.srcObject = stream;
-        }
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
         setState(s => ({ ...s, localStream: stream }));
         
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        socketInstance.emit('webrtc:answer', { to: state.peer.id, answer });
+        socketInstance.emit('webrtc:answer', { to: caller.id, answer });
 
     } catch (err) {
         console.error("Failed to answer call:", err);
+        toast.error("Could not answer call. Check camera/mic permissions.");
         setState(s => ({ ...s, callStatus: "failed" }));
         endCallCleanup();
     }
@@ -190,14 +199,53 @@ export const toggleCamera = () => {
     }
 };
 
+export const switchCamera = async (facingMode: 'user' | 'environment') => {
+    if (!state.localStream || !pcRef) return;
+    
+    try {
+        // Stop current video tracks to release the camera
+        state.localStream.getVideoTracks().forEach(track => track.stop());
+        
+        // Get new stream with the other camera, keeping audio settings
+        const newStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode },
+            audio: true
+        });
+        
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        if (!newVideoTrack) throw new Error("No new video track found");
+        
+        // Replace the track in the PeerConnection
+        const sender = pcRef.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+            await sender.replaceTrack(newVideoTrack);
+        } else {
+            pcRef.addTrack(newVideoTrack, newStream);
+        }
+
+        // Combine new video with existing audio to form the new local stream
+        const finalStream = new MediaStream([newVideoTrack, ...state.localStream.getAudioTracks()]);
+
+        setState(s => ({ ...s, localStream: finalStream, cameraFacingMode: facingMode }));
+        
+    } catch (err) {
+        console.error('Error switching camera:', err);
+        toast.error('Could not switch camera.');
+        // Re-enable old stream tracks if switching fails
+        state.localStream.getTracks().forEach(t => t.enabled = true);
+    }
+};
+
 // --- SOCKET LISTENERS ---
 
 const setupSocketListeners = () => {
     if (!socketInstance) return;
 
-    const handleIncomingCall = async (data: { from: User, offer: RTCSessionDescriptionInit }) => {
-        // We already get the full user object from the server now
-        setState(s => ({ ...s, incomingCall: { caller: data.from, offer: data.offer }, peer: data.from, callStatus: 'incoming' }));
+    const handleIncomingCall = (data: { from: User, offer: RTCSessionDescriptionInit }) => {
+        // Only accept a new call if not already in one
+        if (state.callStatus === 'idle') {
+            setState(s => ({ ...s, incomingCall: { caller: data.from, offer: data.offer }, peer: data.from, callStatus: 'incoming' }));
+        }
     };
 
     const handleAnswer = (data: { answer: RTCSessionDescriptionInit }) => {
