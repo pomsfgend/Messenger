@@ -15,7 +15,7 @@ export const config = {
     PORT: 5173,
     USE_HTTPS: process.env.USE_HTTPS === 'true', 
     
-    TURN_PUBLIC_IP: "46.187.124.166", 
+    TURN_PUBLIC_IP: "127.0.0.1", 
     TURN_USERNAME: "bulkhead",
     TURN_PASSWORD: crypto.randomBytes(16).toString('hex')
 };

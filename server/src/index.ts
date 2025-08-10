@@ -120,7 +120,7 @@ const startServer = async () => {
             // FIX: Increase ping timeout and interval to prevent "transport close" errors on slow networks.
             pingTimeout: 60000,
             pingInterval: 25000,
-        });
+        } as any);
         
         setIo(io); // Store the io instance globally
         app.set('io', io); // For access in routes

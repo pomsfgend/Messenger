@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import * as api from '../services/api';
 import type { ChatContact, User, Message } from '../types';
@@ -49,7 +49,7 @@ const Sidebar: React.FC<{
 }> = ({ activeChatId, onSidebarClose }) => {
     const { currentUser, logout, updateCurrentUser } = useAuth();
     const { t } = useI18n();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const { socket } = useSocket();
     const [contacts, setContacts] = useState<ChatContact[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -108,7 +108,7 @@ const Sidebar: React.FC<{
             const userContacts: ChatContact[] = usersFromApi.map(user => {
                 const chatId = [currentUser.id, user.id].sort().join('-');
                 if (user.unreadCount && user.unreadCount > 0) unreadMap[chatId] = user.unreadCount;
-                return { ...user, type: 'private' };
+                return { ...user, type: 'private', isOnline: user.lastSeen === null };
             });
             
             setUnreadCounts(prev => ({...prev, ...unreadMap}));
@@ -151,9 +151,9 @@ const Sidebar: React.FC<{
     useEffect(() => {
         if (!socket || !currentUser) return;
 
-        const handlePresenceChange = (data: { userId: string, online: boolean, lastSeen: string | null, profile_color?: string, message_color?: string }) => {
+        const handlePresenceChange = (data: { userId: string, online: boolean, lastSeen: string | null }) => {
             setContacts(prevContacts => prevContacts.map(contact => 
-                contact.id === data.userId ? { ...contact, lastSeen: data.lastSeen, isOnline: data.online, profile_color: data.profile_color, message_color: data.message_color } : contact
+                contact.id === data.userId ? { ...contact, lastSeen: data.lastSeen, isOnline: data.online } : contact
             ));
         };
         

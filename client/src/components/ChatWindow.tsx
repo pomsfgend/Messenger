@@ -10,7 +10,7 @@ import Avatar from './Avatar';
 import ViewProfileModal from './ViewProfileModal';
 import MediaUploadPreviewModal from './MediaUploadPreviewModal';
 import MessageContextMenu, { Action } from './MessageContextMenu';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import MediaViewerModal from './MediaViewerModal';
 import useAutosizeTextArea from '../hooks/useAutosizeTextArea';
 import GlobalChatInfoModal from './GlobalChatInfoModal';
@@ -149,7 +149,7 @@ const ChatWindow: React.FC<{
     const { socket } = useSocket();
     const { t } = useI18n();
     const { mode } = useTheme();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatUsers, setChatUsers] = useState<Record<string, User>>({});
@@ -572,21 +572,26 @@ const ChatWindow: React.FC<{
     
     const handleToggleMute = async () => {
         const newMutedState = !isMuted;
+        setIsChatMenuOpen(false);
+        // Optimistic UI update
+        setIsMuted(newMutedState);
+        toast.success(newMutedState ? t('chat.mute') : t('chat.unmute'));
+        
         try {
             if (chatId === GLOBAL_CHAT_ID) {
                 localStorage.setItem('global_chat_muted', String(newMutedState));
-                // Manually dispatch a storage event to notify other tabs
                 window.dispatchEvent(new StorageEvent('storage', { key: 'global_chat_muted', newValue: String(newMutedState) }));
-                setIsMuted(newMutedState);
             } else if (partner) {
                 await api.updateChatState(chatId!, { is_muted: newMutedState });
-                setIsMuted(newMutedState);
             }
-            toast.success(newMutedState ? t('chat.mute') : t('chat.unmute'));
         } catch {
             toast.error('Failed to update mute status');
+            // Revert on error
+            setIsMuted(!newMutedState);
+            if (chatId === GLOBAL_CHAT_ID) {
+                localStorage.setItem('global_chat_muted', String(!newMutedState));
+            }
         }
-        setIsChatMenuOpen(false);
     };
 
     const onContextMenuAction = (action: Action) => {
@@ -649,6 +654,14 @@ const ChatWindow: React.FC<{
             </div>
         );
     };
+    
+    const handleSendOrSave = () => {
+        if (editingMessage) {
+            handleSaveEdit();
+        } else {
+            handleSendMessage(newMessage);
+        }
+    };
 
     return (
         <div className="flex flex-col h-[var(--app-height)] bg-slate-100 dark:bg-slate-900 min-w-0">
@@ -661,13 +674,13 @@ const ChatWindow: React.FC<{
             {isRecordingVideo && <VideoRecorderModal onClose={() => setIsRecordingVideo(false)} onSend={(file) => handleSendFile(file, '', 'video_circle')} />}
             {isChatInfoModalOpen && <GlobalChatInfoModal onClose={() => setIsChatInfoModalOpen(false)} />}
             
-            <header className="flex-shrink-0 flex items-center justify-between p-3 border-b border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md z-10">
+            <header className="flex-shrink-0 flex items-center justify-between p-3 border-b border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md z-20">
                 <div className="flex items-center gap-3 min-w-0">
                     {!isStandalone && <button onClick={onToggleSidebar} className="lg:hidden p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg></button>}
                     
                     {chatId !== GLOBAL_CHAT_ID && partner ? (
                         <div className="flex items-center gap-3 cursor-pointer min-w-0" onClick={() => setViewingProfile(partner)}>
-                            <Avatar user={{...partner, isOnline: !partner.lastSeen}} />
+                            <Avatar user={{...partner, isOnline: partner.isOnline}} />
                             <div className="min-w-0">
                                 <p className="font-semibold truncate">{partner.name || partner.uniqueId}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{Array.from(typingUsers).length > 0 ? t('chat.typing') : formatLastSeen(partner.lastSeen, t)}</p>
@@ -685,7 +698,7 @@ const ChatWindow: React.FC<{
                     <div ref={chatMenuRef} className="relative">
                          <button onClick={() => setIsChatMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaEllipsisV/></button>
                          {isChatMenuOpen && (
-                             <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-700 rounded-lg shadow-xl z-20 py-1">
+                             <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-700 rounded-lg shadow-xl z-30 py-1">
                                  <button onClick={handleToggleMute} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600">
                                      {isMuted ? <FaBell/> : <FaBellSlash/>}
                                      <span>{isMuted ? t('chat.unmute') : t('chat.mute')}</span>
@@ -698,7 +711,7 @@ const ChatWindow: React.FC<{
 
             {renderChatContent()}
 
-            <footer className="flex-shrink-0 p-3 border-t border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+            <footer className="flex-shrink-0 p-3 border-t border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 z-10">
                 <AnimatePresence>
                 {isRecordingAudio ? (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}>
@@ -710,6 +723,15 @@ const ChatWindow: React.FC<{
                         <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
                         
                         <div className="relative flex-1">
+                            {editingMessage && (
+                                <div className="absolute bottom-full left-0 right-0 p-2 bg-slate-200/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-t-lg flex justify-between items-center animate-fade-in">
+                                    <div>
+                                        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{t('chat.editingMessage')}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-xs">{editingMessage.content}</p>
+                                    </div>
+                                    <button onClick={() => { setEditingMessage(null); setNewMessage(''); }} className="p-1 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700">&times;</button>
+                                </div>
+                            )}
                             <textarea
                                 ref={textAreaRef}
                                 value={newMessage}
@@ -726,18 +748,24 @@ const ChatWindow: React.FC<{
                                 <FaSmile className="w-5 h-5"/>
                              </button>
                              {showEmojiPicker && (
-                                <div ref={emojiPickerRef} className="absolute bottom-full left-0 sm:right-0 sm:left-auto mb-2 z-50">
+                                <div ref={emojiPickerRef} className="absolute bottom-full right-0 mb-2 z-50">
                                    <EmojiPicker 
                                       onEmojiClick={(e) => setNewMessage(p => p + e.emoji)} 
                                       theme={mode === 'dark' ? Theme.DARK : Theme.LIGHT}
-                                      searchDisabled={true}
+                                      searchDisabled={isMobile}
                                    />
                                 </div>
                             )}
                         </div>
                         
-                        {newMessage.trim() ? (
-                             <button onClick={() => handleSendMessage(newMessage)} className="w-12 h-12 flex items-center justify-center bg-indigo-500 rounded-full text-white flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg></button>
+                        {newMessage.trim() || editingMessage ? (
+                             <button onClick={handleSendOrSave} className="w-12 h-12 flex items-center justify-center bg-indigo-500 rounded-full text-white flex-shrink-0">
+                                {editingMessage ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                                )}
+                             </button>
                         ) : (
                             <>
                             <button onClick={() => setIsRecordingVideo(true)} className="w-12 h-12 flex items-center justify-center bg-cyan-500 rounded-full text-white flex-shrink-0"><FaVideo/></button>

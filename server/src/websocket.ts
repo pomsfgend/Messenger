@@ -233,6 +233,7 @@ export const initializeWebSocket = (io: Server) => {
                 } else {
                     io.to(chatId).emit('newMessage', payload);
                     if (partnerId) {
+                        // Also emit to the partner's user room to ensure sidebar updates
                         io.to(partnerId).emit('newMessage', payload);
                     }
                 }
