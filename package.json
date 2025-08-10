@@ -1,4 +1,3 @@
-
 {
   "name": "web-messenger-fullstack",
   "version": "1.0.0",
@@ -14,5 +13,8 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "react-rnd": "^10.5.2"
   }
 }
