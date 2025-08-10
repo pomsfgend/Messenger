@@ -240,15 +240,10 @@ const AppRoutes: React.FC = () => {
           <ReactRouterDOM.Route path="/register" element={<RegisterPage />} />
         </ReactRouterDOM.Route>
         
-        {/* Standalone Chat Route */}
-        <ReactRouterDOM.Route path="/app/chat-standalone/:chatId" element={<ProtectedRoute />}>
-            <ReactRouterDOM.Route index element={<StandaloneChatPage />} />
-        </ReactRouterDOM.Route>
-
-        {/* Protected Application Routes */}
-        <ReactRouterDOM.Route path="/app/*" element={<ProtectedRoute />}>
-          {/* If authenticated and not banned, render the main messenger layout */}
-          <ReactRouterDOM.Route path="*" element={currentUser && !currentUser.isEffectivelyBanned ? <MessengerLayout /> : <LoadingSpinner />} />
+        {/* Protected Application Routes are now grouped under a single ProtectedRoute element */}
+        <ReactRouterDOM.Route element={<ProtectedRoute />}>
+            <ReactRouterDOM.Route path="/app/chat-standalone/:chatId" element={<StandaloneChatPage />} />
+            <ReactRouterDOM.Route path="/app/*" element={<MessengerLayout />} />
         </ReactRouterDOM.Route>
         
         {/* Fallback redirect */}

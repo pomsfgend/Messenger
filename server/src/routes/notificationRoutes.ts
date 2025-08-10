@@ -1,5 +1,5 @@
 import express from 'express';
-import type { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { getDb } from '../db';
 import { protect } from '../auth';
 import { config } from '../config';

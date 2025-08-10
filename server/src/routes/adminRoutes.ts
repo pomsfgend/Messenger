@@ -1,11 +1,11 @@
-import express, { Router } from 'express';
-import type { Request, Response, NextFunction } from 'express';
+import express, { Router, Request, Response, NextFunction } from 'express';
 import { getDb } from '../db';
 import { isModeratorOrAdmin } from '../auth';
 import fs from 'fs/promises';
 import path from 'path';
 import { __dirname } from '../utils';
 import { sanitizeMediaUrl } from '../fileUtils';
+import { config } from '../config';
 
 const router = Router();
 
@@ -15,7 +15,7 @@ const roleHierarchy: Record<string, number> = {
     'admin': 2
 };
 
-const superAdminUniqueIds = process.env.ADMIN_IDS?.split(',').map(id => id.trim()).filter(Boolean) || [];
+const superAdminUniqueIds = config.ADMIN_IDS || [];
 
 
 // GET /api/admin/users
