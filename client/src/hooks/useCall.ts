@@ -169,7 +169,6 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         if (!socket || !currentUser) return;
 
         callPartnerRef.current = partner;
-        
         const pc = await createPeerConnection();
         if (!pc) return;
         
@@ -185,7 +184,7 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
             localVideoRef.current.srcObject = localStreamRef.current;
         }
         
-        // CRITICAL FIX: Setup E2EE before creating the offer.
+        // CORRECT ORDER: Setup E2EE before creating the offer.
         await setupE2EE(pc, true);
 
         const offer = await pc.createOffer();
@@ -228,6 +227,8 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
         callPartnerRef.current = incomingCall.caller;
         const pc = await createPeerConnection();
         if (!pc) return;
+
+        await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
         
         try {
             localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -237,14 +238,12 @@ export const useCall = ({ localVideoRef, remoteVideoRef, chatId }: UseCallProps)
             return;
         }
 
-        await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.offer));
-        
         localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current!));
         if (localVideoRef.current) {
             localVideoRef.current.srcObject = localStreamRef.current;
         }
-
-        // CRITICAL FIX: Setup E2EE after setting remote description but before creating the answer.
+        
+        // CORRECT ORDER: Setup E2EE for the answering client before creating the answer.
         await setupE2EE(pc, false);
         
         const answer = await pc.createAnswer();

@@ -27,6 +27,11 @@ export const useResizable = (modalRef: RefObject<HTMLElement>, modalId?: string)
     const onResizeMove = useCallback((e: MouseEvent | TouchEvent) => {
         if (!isResizing.current || !modalRef.current) return;
         
+        // Prevent default scroll/zoom behavior on touch devices
+        if ('touches' in e) {
+            e.preventDefault();
+        }
+        
         const { x, y } = getCoords(e);
         const rect = modalRef.current.getBoundingClientRect();
         
@@ -60,10 +65,9 @@ export const useResizable = (modalRef: RefObject<HTMLElement>, modalId?: string)
 
     const onResizeStart = useCallback((e: MouseEvent | TouchEvent) => {
         e.stopPropagation();
-        if ('preventDefault' in e) e.preventDefault();
         
         isResizing.current = true;
-        document.addEventListener('mousemove', onResizeMove);
+        document.addEventListener('mousemove', onResizeMove, { passive: false });
         document.addEventListener('mouseup', onResizeEnd);
         document.addEventListener('touchmove', onResizeMove, { passive: false });
         document.addEventListener('touchend', onResizeEnd);
@@ -85,17 +89,20 @@ export const useResizable = (modalRef: RefObject<HTMLElement>, modalId?: string)
         resizer.style.touchAction = 'none';
 
         const mousedownListener = onResizeStart as unknown as EventListener;
+        const touchstartListener = onResizeStart as unknown as EventListener;
+        
         resizer.addEventListener('mousedown', mousedownListener);
-        resizer.addEventListener('touchstart', mousedownListener, { passive: false });
+        resizer.addEventListener('touchstart', touchstartListener, { passive: false });
         
         modal.appendChild(resizer);
         
         return () => {
             resizer.removeEventListener('mousedown', mousedownListener);
-            resizer.removeEventListener('touchstart', mousedownListener);
+            resizer.removeEventListener('touchstart', touchstartListener);
             if (modal.contains(resizer)) {
                  modal.removeChild(resizer);
             }
+            // Cleanup global listeners
             document.removeEventListener('mousemove', onResizeMove);
             document.removeEventListener('mouseup', onResizeEnd);
             document.removeEventListener('touchmove', onResizeMove);

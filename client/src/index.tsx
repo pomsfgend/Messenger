@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -33,6 +32,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <I18nProvider>
+      {/* @ts-ignore - Workaround for potential type incompatibility with React 18 */}
       <GoogleOAuthProvider clientId={clientConfig.GOOGLE_CLIENT_ID}>
         <ThemeProvider>
           <AuthProvider>

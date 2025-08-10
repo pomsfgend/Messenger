@@ -155,7 +155,7 @@ router.delete('/:messageId', async (req: Request, res: Response) => {
             });
         }
         
-        io.to(message.chatId).emit('messageDeleted', { id: messageId });
+        io.to(message.chatId).emit('messageDeleted', { id: messageId, chatId: message.chatId });
         
         res.json({ message: 'Message deleted successfully.' });
 
@@ -206,7 +206,7 @@ router.post('/bulk-delete', async (req: Request, res: Response) => {
             })();
 
             chatIdsToNotify.forEach(chatId => {
-                io.to(chatId).emit('messagesDeleted', { messageIds: authorizedToDelete });
+                io.to(chatId).emit('messagesDeleted', { messageIds: authorizedToDelete, chatId: chatId });
             });
         }
         

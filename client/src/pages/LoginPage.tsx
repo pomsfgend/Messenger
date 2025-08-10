@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';

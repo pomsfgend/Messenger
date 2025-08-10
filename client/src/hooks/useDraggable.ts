@@ -36,6 +36,11 @@ export const useDraggable = (
   const onDragMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!dragInfo.current.isDragging) return;
     
+    // Prevent default scroll behavior on touch devices
+    if ('touches' in e) {
+        e.preventDefault();
+    }
+    
     const { x, y } = getCoords(e);
     const dx = x - dragInfo.current.startX;
     const dy = y - dragInfo.current.startY;
@@ -75,8 +80,6 @@ export const useDraggable = (
     const targetIsHandle = handleRef.current && handleRef.current.contains(e.target as Node);
     
     if (targetIsHandle) {
-      if ('preventDefault' in e) e.preventDefault();
-      
       const { x, y } = getCoords(e);
       
       dragInfo.current.isDragging = true;
@@ -89,7 +92,7 @@ export const useDraggable = (
         return currentTransform;
       });
 
-      document.addEventListener('mousemove', onDragMove);
+      document.addEventListener('mousemove', onDragMove, { passive: false });
       document.addEventListener('mouseup', onDragEnd);
       document.addEventListener('touchmove', onDragMove, { passive: false });
       document.addEventListener('touchend', onDragEnd);
@@ -102,11 +105,15 @@ export const useDraggable = (
     const handle = handleRef.current;
     if (handle) {
       const mousedownListener = onDragStart as EventListener;
+      const touchstartListener = onDragStart as EventListener;
+
       handle.addEventListener('mousedown', mousedownListener);
-      handle.addEventListener('touchstart', mousedownListener, { passive: true });
+      handle.addEventListener('touchstart', touchstartListener, { passive: true });
+
       return () => {
         handle.removeEventListener('mousedown', mousedownListener);
-        handle.removeEventListener('touchstart', mousedownListener);
+        handle.removeEventListener('touchstart', touchstartListener);
+        // Cleanup global listeners just in case
         document.removeEventListener('mousemove', onDragMove);
         document.removeEventListener('mouseup', onDragEnd);
         document.removeEventListener('touchmove', onDragMove);

@@ -118,6 +118,11 @@ const parseMarkdown = (text: string) => {
         .replace(/~(.*?)~/g, '<s>$1</s>');
 };
 
+const EMOJI_MAP: Record<string, string> = {
+  '10': '👍', '11': '👎', '12': '😄', '13': '🎉', '14': '😞', '15': '😠',
+  '21': '❤️', '22': '🔥', '23': '👏', '24': '🤔', '25': '🤯', '26': '💩'
+};
+
 const ReactionPalette: React.FC<{ onSelect: (emoji: string) => void; isOwn: boolean; }> = ({ onSelect, isOwn }) => {
     const reactions = ['👍', '❤️', '😂', '😯', '😢', '🙏'];
     const positionClass = isOwn ? 'right-0' : 'left-0';
@@ -242,16 +247,17 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </div>
                     {hasReactions && (
                          <div className={`flex gap-1 mt-1 p-1 rounded-full bg-slate-200/50 dark:bg-slate-900/50 ${isOwn ? 'mr-1' : 'ml-1'}`}>
-                             {Object.keys(message.reactions!).map(emoji => {
-                                const userIds = message.reactions![emoji];
-                                if (userIds.length === 0) return null;
+                             {Object.entries(message.reactions!).map(([emoji, userIds]) => {
+                                const reactorIds = userIds as string[];
+                                if (reactorIds.length === 0) return null;
+                                const displayEmoji = EMOJI_MAP[emoji] || emoji;
                                 return (
                                     <button 
                                         key={emoji} 
                                         onClick={(e) => { e.stopPropagation(); handleReaction(emoji); }}
-                                        className={`px-2 py-0.5 rounded-full text-xs transition-colors ${userIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
+                                        className={`px-2 py-0.5 rounded-full text-xs transition-colors ${reactorIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
                                     >
-                                        {emoji} {userIds.length}
+                                        {displayEmoji} {reactorIds.length}
                                     </button>
                                 )
                             })}
@@ -351,16 +357,17 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                  {hasReactions && (
                     <div className={`flex gap-1 mt-1 p-1 rounded-full bg-slate-200/50 dark:bg-slate-900/50 ${isOwn ? 'mr-1' : 'ml-1'}`}>
-                        {Object.keys(message.reactions!).map(emoji => {
-                            const userIds = message.reactions![emoji];
-                            if (userIds.length === 0) return null;
+                        {Object.entries(message.reactions!).map(([emoji, userIds]) => {
+                            const reactorIds = userIds as string[];
+                            if (reactorIds.length === 0) return null;
+                            const displayEmoji = EMOJI_MAP[emoji] || emoji;
                             return (
                                 <button 
                                     key={emoji} 
                                     onClick={() => handleReaction(emoji)}
-                                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${userIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
+                                    className={`px-2 py-0.5 rounded-full text-xs transition-colors ${reactorIds.includes(currentUser!.id) ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-slate-700'}`}
                                 >
-                                    {emoji} {userIds.length}
+                                    {displayEmoji} {reactorIds.length}
                                 </button>
                             );
                         })}
