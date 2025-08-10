@@ -1,39 +1,41 @@
 import React, { useEffect, useState } from 'react';
-import * as api from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import * as api from '../services/api';
+import type { User } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 export const TelegramAuthModal = () => {
-    const { updateCurrentUser } = useAuth();
-
+    const { currentUser, updateCurrentUser } = useAuth();
     const [showModal, setShowModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [status, setStatus] = useState('pending'); // pending, loading, success, error
+    const [status, setStatus] = useState<'prompt' | 'loading' | 'success' | 'error'>('prompt');
     const [userName, setUserName] = useState('');
+    const navigate = useNavigate();
 
     useEffect(() => {
         const isTelegramWebApp = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData;
-        
-        if (isTelegramWebApp) {
+        if (isTelegramWebApp && !currentUser) {
             setShowModal(true);
-            handleTelegramAuth(window.Telegram.WebApp.initData);
         }
-    }, []);
+    }, [currentUser]);
 
-    const handleTelegramAuth = async (initData: string) => {
+    const handleTelegramAuth = async () => {
+        if (!window.Telegram?.WebApp?.initData) return;
+
         setIsLoading(true);
         setStatus('loading');
         try {
-            const userData = await api.telegramWebAppLogin(initData);
+            const userData = await api.telegramWebAppLogin(window.Telegram.WebApp.initData);
             if (userData) {
                 setUserName(userData.name || userData.username || '');
                 updateCurrentUser(userData);
                 setStatus('success');
                 setTimeout(() => {
-                    // Use replace to avoid adding the auth modal to browser history
-                    window.location.replace('/app');
+                    setShowModal(false);
+                    navigate('/app', { replace: true });
                 }, 2000);
             } else {
-                 throw new Error("User data not returned from API.");
+                throw new Error("User data not returned from API.");
             }
         } catch (error) {
             console.error('Telegram auth error:', error);
@@ -42,6 +44,11 @@ export const TelegramAuthModal = () => {
             setIsLoading(false);
         }
     };
+    
+    const handleClose = () => {
+        setShowModal(false);
+        navigate('/login', { replace: true });
+    }
 
     if (!showModal) return null;
 
@@ -78,14 +85,35 @@ export const TelegramAuthModal = () => {
                 )}
 
                 {status === 'error' && (
-                    <div className="text-center py-4">
+                     <div className="text-center py-4">
                         <div className="text-red-500 mb-2">
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
                         <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Ошибка авторизации</h3>
                         <p className="text-gray-600 dark:text-gray-300 mt-2">Не удалось войти через Telegram. Пожалуйста, попробуйте обычный способ входа.</p>
-                        <button onClick={() => setShowModal(false)} className="mt-4 bg-indigo-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-600 transition">
+                        <button onClick={handleClose} className="mt-4 bg-indigo-500 text-white font-medium py-2 px-4 rounded-lg hover:bg-indigo-600 transition">
                             Продолжить
+                        </button>
+                    </div>
+                )}
+
+                {status === 'prompt' && (
+                    <div className="flex flex-col gap-4">
+                        <p className="text-center text-gray-600 dark:text-gray-300">
+                            Продолжить, используя ваш аккаунт Telegram для входа или регистрации?
+                        </p>
+                        <button
+                            onClick={handleTelegramAuth}
+                            disabled={isLoading}
+                            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center transition"
+                        >
+                            Продолжить как пользователь Telegram
+                        </button>
+                        <button
+                            onClick={handleClose}
+                            className="border border-gray-300 text-gray-700 dark:text-gray-300 dark:border-gray-600 font-medium py-3 px-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                        >
+                            Войти другим способом
                         </button>
                     </div>
                 )}

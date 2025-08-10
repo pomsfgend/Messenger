@@ -44,10 +44,10 @@ const App: React.FC = () => {
         // @ts-ignore
         const tg = window.Telegram.WebApp;
         tg.ready();
-        tg.setHeaderColor('#2b2d31');
-        tg.setBackgroundColor('#1e1f22');
-        tg.onEvent('backButtonClicked', () => window.history.back());
-        if(window.history.length > 1) {
+        if (tg.setHeaderColor) tg.setHeaderColor('#2b2d31');
+        if (tg.setBackgroundColor) tg.setBackgroundColor('#1e1f22');
+        if (tg.onEvent) tg.onEvent('backButtonClicked', () => window.history.back());
+        if(window.history.length > 1 && tg.BackButton) {
             tg.BackButton.show();
         }
     }

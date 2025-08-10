@@ -1,5 +1,4 @@
-import express from 'express';
-import { Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -89,7 +88,7 @@ const initializeBotListeners = () => {
                 
                 // Construct and save the message as if it came from the web app
                 const newMessage: Message = {
-                    id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                    id: crypto.randomUUID(),
                     chatId,
                     senderId: sender.id,
                     content: msg.text,
@@ -165,26 +164,49 @@ export const initializeAuthServices = (socketIo: SocketIOServer) => {
 }
 
 
-const userFieldsToSelect = 'id, username, name, uniqueId, gender, dob, createdAt, telegram_id as telegramId, phone_number as phoneNumber, is_anonymous as isAnonymous, avatar_url as avatarUrl, profile_setup as profileSetup, role, is_banned as isBanned, ban_reason as banReason, ban_expires_at as banExpiresAt, google_id as googleId, mute_expires_at as muteExpiresAt, mute_reason as muteReason, last_seen as lastSeen, profile_color, message_color, description, profile_emoji, profile_emoji_density, profile_emoji_rotation, privacy_show_phone, privacy_show_telegram, privacy_show_dob, privacy_show_description, privacy_show_last_seen, privacy_show_typing, is_2fa_enabled';
+const userFieldsToSelect = 'id, username, name, uniqueId, gender, dob, createdAt, telegram_id as telegramId, phone_number as phoneNumber, is_anonymous as isAnonymous, avatar_url as avatarUrl, profile_setup as profileSetup, role, is_banned, ban_reason as banReason, ban_expires_at as banExpiresAt, google_id as googleId, mute_expires_at as muteExpiresAt, mute_reason as muteReason, last_seen as lastSeen, profile_color, message_color, description, profile_emoji, profile_emoji_density, profile_emoji_rotation, privacy_show_phone, privacy_show_telegram, privacy_show_dob, privacy_show_description, privacy_show_last_seen, privacy_show_typing, is_2fa_enabled';
 
 const transformUser = (dbUser: any): User => {
     if (!dbUser) return dbUser;
-    return {
-        ...dbUser,
-        telegramId: dbUser.telegram_id,
-        phoneNumber: dbUser.phone_number,
+    // This function robustly handles both snake_case from the DB
+    // and camelCase from aliased queries, ensuring consistent object shape.
+    const user = {
+        ...dbUser, // Keep any other fields, like password_hash
+        telegramId: dbUser.telegram_id || dbUser.telegramId,
+        phoneNumber: dbUser.phone_number || dbUser.phoneNumber,
+        avatarUrl: dbUser.avatar_url || dbUser.avatarUrl,
+        googleId: dbUser.google_id || dbUser.googleId,
+        banReason: dbUser.ban_reason || dbUser.banReason,
+        banExpiresAt: dbUser.ban_expires_at || dbUser.banExpiresAt,
+        muteExpiresAt: dbUser.mute_expires_at || dbUser.muteExpiresAt,
+        muteReason: dbUser.mute_reason || dbUser.muteReason,
+        lastSeen: dbUser.last_seen || dbUser.lastSeen,
         isAnonymous: !!dbUser.is_anonymous,
-        avatarUrl: dbUser.avatar_url,
         profileSetup: !!dbUser.profile_setup,
-        isBanned: !!dbUser.is_banned,
-        banReason: dbUser.ban_reason,
-        banExpiresAt: dbUser.ban_expires_at,
-        googleId: dbUser.google_id,
-        muteExpiresAt: dbUser.mute_expires_at,
-        muteReason: dbUser.mute_reason,
-        lastSeen: dbUser.last_seen,
-        is_2fa_enabled: !!dbUser.is_2fa_enabled
+        is_banned: !!dbUser.is_banned,
+        is_2fa_enabled: !!dbUser.is_2fa_enabled,
+        privacy_show_phone: !!dbUser.privacy_show_phone,
+        privacy_show_telegram: !!dbUser.privacy_show_telegram,
+        privacy_show_dob: !!dbUser.privacy_show_dob,
+        privacy_show_description: !!dbUser.privacy_show_description,
+        privacy_show_last_seen: !!dbUser.privacy_show_last_seen,
+        privacy_show_typing: !!dbUser.privacy_show_typing,
     };
+
+    // Remove original snake_case keys to prevent duplicate data
+    delete user.telegram_id;
+    delete user.phone_number;
+    delete user.avatar_url;
+    delete user.google_id;
+    delete user.ban_reason;
+    delete user.ban_expires_at;
+    delete user.mute_expires_at;
+    delete user.mute_reason;
+    delete user.last_seen;
+    delete user.is_anonymous;
+    delete user.profile_setup;
+
+    return user as User;
 };
 
 const generateToken = (res: Response, userId: string) => {
@@ -207,13 +229,13 @@ const generateToken = (res: Response, userId: string) => {
 };
 
 const handle2FAChallenge = async (res: Response, user: User) => {
-    if (!user.telegram_id || !bot) {
+    if (!user.telegramId || !bot) {
         return res.status(400).json({ message: '2FA is enabled but Telegram is not linked or bot is not configured.' });
     }
     const code = crypto.randomInt(100000, 999999).toString();
     twoFactorCodeStore[user.id] = { code, expires: Date.now() + 5 * 60 * 1000 }; // 5 minute expiry
     try {
-        await bot.sendMessage(user.telegram_id, `Your login confirmation code is: ${code}`);
+        await bot.sendMessage(user.telegramId, `Your login confirmation code is: ${code}`);
         return res.status(202).json({ twoFactorRequired: true, userId: user.id });
     } catch (e: any) {
         console.error("Failed to send 2FA code via Telegram:", e.message);
@@ -418,9 +440,10 @@ router.post('/telegram-login', async (req: Request, res: Response) => {
             user = await db.get('SELECT * FROM users WHERE id = ?', newUser.id);
         }
 
-        if (user.is_2fa_enabled) {
-            return handle2FAChallenge(res, transformUser(user));
-        }
+        // FIX: Login via Telegram should bypass the 2FA check, as it's a second factor itself.
+        // if (user.is_2fa_enabled) {
+        //     return handle2FAChallenge(res, transformUser(user));
+        // }
 
         generateToken(res, user.id);
         const userForClient = await db.get(`SELECT ${userFieldsToSelect} FROM users WHERE id = ?`, user.id);
@@ -468,6 +491,11 @@ router.post('/telegram-webapp-login', async (req: Request, res: Response) => {
             user = await db.get('SELECT * FROM users WHERE id = ?', newUser.id);
         }
         
+        // FIX: Login via Telegram should bypass the 2FA check, as it's a second factor itself.
+        // if (user.is_2fa_enabled) {
+        //     return handle2FAChallenge(res, transformUser(user));
+        // }
+
         generateToken(res, user.id);
         const userForClient = await db.get(`SELECT ${userFieldsToSelect} FROM users WHERE id = ?`, user.id);
         res.json(transformUser(userForClient));

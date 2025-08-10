@@ -1,5 +1,4 @@
-import express from 'express';
-import { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import './types'; // Import for declaration merging
 import http from 'http';
 import https from 'https';

@@ -7,6 +7,7 @@ import { bot } from './routes/authRoutes'; // Import the initialized bot
 import { push } from './push';
 import { config } from './config'; // Import hardcoded config
 import { CHAT_CONTACT_USER_FIELDS } from './sharedConstants';
+import crypto from 'crypto';
 
 type AuthenticatedSocket = Socket & {
     user?: { id: string };
@@ -198,7 +199,7 @@ export const initializeWebSocket = (io: Server) => {
                 }
 
                 const newMessage: Message = {
-                    id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                    id: crypto.randomUUID(),
                     chatId,
                     senderId,
                     content: content || '',
