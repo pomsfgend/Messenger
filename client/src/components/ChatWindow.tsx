@@ -20,12 +20,11 @@ import MessageBubble from './MessageBubble';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { useTheme } from '../hooks/useTheme';
 import VideoRecorderModal from './VideoRecorderModal';
-import { FaVideo, FaMicrophone, FaEllipsisV, FaBell, FaBellSlash, FaSmile, FaTimes, FaDownload, FaUsers } from 'react-icons/fa';
+import { FaVideo, FaMicrophone, FaEllipsisV, FaBell, FaBellSlash, FaSmile, FaTimes, FaDownload, FaUsers, FaPaperclip } from 'react-icons/fa';
 import { startCall } from '../hooks/useCall';
 import { isMobile } from 'react-device-detect';
 import ForwardMessageModal from './ForwardMessageModal';
 import MessageActionBar from './MessageActionBar';
-import { processVideoCircleForDownload } from '../utils/mediaProcessor';
 
 
 const AudioRecorder: React.FC<{ onSend: (file: File) => void; onCancel: () => void; }> = ({ onSend, onCancel }) => {
@@ -601,12 +600,13 @@ const ChatWindow: React.FC<{
         }},
         { label: t('chat.react'), action: () => setIsReacting(message.id) },
         { label: t('chat.forward'), action: () => setForwardingMessage(message) },
-        message.type === 'video_circle' && { label: t('common.download'), action: async () => {
-             toast.promise(processVideoCircleForDownload(`/api/media/${message.mediaUrl}`), {
-                loading: 'Обработка видео...',
-                success: 'Загрузка началась!',
-                error: 'Не удалось обработать видео.'
-            });
+        message.mediaUrl && { label: t('common.download'), action: () => {
+             const link = document.createElement('a');
+             link.href = `/api/media/${message.mediaUrl}`;
+             link.download = message.content || `download-${message.id}`;
+             document.body.appendChild(link);
+             link.click();
+             document.body.removeChild(link);
         }},
         message.senderId === currentUser?.id && { label: t('common.edit'), action: () => {
             setEditingMessage(message);
@@ -696,7 +696,7 @@ const ChatWindow: React.FC<{
     };
 
     return (
-        <div className="flex flex-col h-[var(--app-height)] bg-slate-100 dark:bg-slate-900 min-w-0">
+        <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 min-w-0">
             {viewingProfile && <ViewProfileModal user={viewingProfile} onClose={() => setViewingProfile(null)} onStartChat={(userId) => { setViewingProfile(null); navigate(`/app/chat/${[currentUser!.id, userId].sort().join('-')}`)}} />}
             {mediaPreview && <MediaUploadPreviewModal item={mediaPreview} onClose={() => setMediaPreview(null)} onSend={handleSendFile} />}
             {isDeleteConfirmOpen && <ConfirmationModal isOpen={isDeleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} onConfirm={handleDeleteSelected} title={t('common.delete')} message={t('chat.deleteConfirm', { count: selectedMessages.size })} />}
@@ -740,9 +740,9 @@ const ChatWindow: React.FC<{
                     )}
                 </div>
                 <div className="flex items-center gap-2 relative">
-                    {partner && <button onClick={() => startCall(partner)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaVideo/></button>}
+                    {partner && <button onClick={() => startCall(partner)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaVideo className="w-5 h-5"/></button>}
                     <div ref={chatMenuRef} className="relative">
-                         <button onClick={() => setIsChatMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaEllipsisV/></button>
+                         <button onClick={() => setIsChatMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaEllipsisV className="w-5 h-5"/></button>
                          {isChatMenuOpen && (
                              <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-700 rounded-lg shadow-xl z-30 py-1">
                                  <button onClick={handleToggleMute} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600">
@@ -771,7 +771,7 @@ const ChatWindow: React.FC<{
                     </motion.div>
                 ) : (
                      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-2">
-                        <button onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg></button>
+                        <button onClick={() => fileInputRef.current?.click()} className="p-3 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 flex-shrink-0" title={t('common.select')}><FaPaperclip className="w-5 h-5"/></button>
                         <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
                         
                         <div className="relative flex-1">
@@ -822,8 +822,8 @@ const ChatWindow: React.FC<{
                              </button>
                         ) : (
                             <>
-                            <button onClick={() => setIsRecordingVideo(true)} className="w-12 h-12 flex items-center justify-center bg-cyan-500 rounded-full text-white flex-shrink-0"><FaVideo/></button>
-                            <button onClick={() => setIsRecordingAudio(true)} className="w-12 h-12 flex items-center justify-center bg-rose-500 rounded-full text-white flex-shrink-0"><FaMicrophone/></button>
+                            <button onClick={() => setIsRecordingVideo(true)} className="w-12 h-12 flex items-center justify-center bg-cyan-500 rounded-full text-white flex-shrink-0"><FaVideo className="w-6 h-6"/></button>
+                            <button onClick={() => setIsRecordingAudio(true)} className="w-12 h-12 flex items-center justify-center bg-rose-500 rounded-full text-white flex-shrink-0"><FaMicrophone className="w-6 h-6"/></button>
                             </>
                         )}
                     </motion.div>

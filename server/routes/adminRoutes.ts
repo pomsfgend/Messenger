@@ -1,5 +1,4 @@
-
-import express, { Router } from 'express';
+import express from 'express';
 import { getDb } from './../src/db';
 import { isModeratorOrAdmin } from './../src/auth';
 import fs from 'fs/promises';

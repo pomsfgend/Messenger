@@ -13,7 +13,7 @@ import SettingsModal from './SettingsModal';
 import SidebarContextMenu from './SidebarContextMenu';
 import { FixedSizeList as List } from 'react-window';
 import SidebarContact from './SidebarContact';
-import { FaCog, FaUsers } from 'react-icons/fa';
+import { FaCog, FaUsers, FaBell, FaBellSlash } from 'react-icons/fa';
 
 const notificationSoundSrc = "/assets/notification.mp3";
 
@@ -354,7 +354,7 @@ const Sidebar: React.FC<{
                     </div>
                     <div className="flex items-center">
                         <button onClick={() => setIsSettingsModalOpen(true)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title={t('sidebar.settings')}>
-                            <FaCog />
+                            <FaCog className="w-5 h-5" />
                         </button>
                     </div>
                 </div>

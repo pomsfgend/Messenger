@@ -357,6 +357,12 @@ export const initializeWebSocket = (io: Server) => {
             io.to(data.to).emit('webrtc:ice-candidate', { candidate: data.candidate });
         });
 
+        authSocket.on('call:quality-update', (data) => {
+            if (data.to) {
+                io.to(data.to).emit('call:quality-update', { quality: data.quality });
+            }
+        });
+
         authSocket.on('call:reject', (data) => {
             io.to(data.to).emit('call:rejected', { reason: data.reason });
         });
@@ -372,11 +378,16 @@ export const initializeWebSocket = (io: Server) => {
             activeCalls.delete(userId);
             
             if (!userSockets.has(userId)) {
-                 userActiveChat.delete(userId);
-                 userWindowFocus.delete(userId);
-                 await db.run('UPDATE users SET last_seen = ? WHERE id = ?', [new Date().toISOString(), userId]);
-                 console.log(`User disconnected: ${userId}`);
-                 notifyContactsOfPresenceChange(io, userId, false);
+                try {
+                    userActiveChat.delete(userId);
+                    userWindowFocus.delete(userId);
+                    const offlineTimestamp = new Date().toISOString();
+                    await db.run('UPDATE users SET last_seen = ? WHERE id = ?', [offlineTimestamp, userId]);
+                    console.log(`User ${userId} marked as offline at ${offlineTimestamp}.`);
+                    notifyContactsOfPresenceChange(io, userId, false);
+                } catch (error) {
+                    console.error(`Error during user disconnect cleanup for ${userId}:`, error);
+                }
             }
         });
     });

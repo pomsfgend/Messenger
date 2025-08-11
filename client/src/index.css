@@ -167,3 +167,16 @@
 .animate-deleted-message {
   animation: shrink-width-and-fade 5s linear forwards;
 }
+
+/* Call Interface Styles for Minimized State */
+.call-window-wrapper.minimized {
+    @apply bottom-28 right-5 w-40 aspect-[3/4] rounded-lg shadow-2xl;
+    /* Reset fullscreen properties */
+    top: auto;
+    left: auto;
+    height: auto;
+}
+
+.call-window-wrapper.minimized video {
+    @apply w-full h-full object-cover;
+}

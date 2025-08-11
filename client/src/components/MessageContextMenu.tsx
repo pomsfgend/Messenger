@@ -68,7 +68,8 @@ const MessageContextMenu: React.FC<MessageContextMenuProps> = ({ x, y, onClose, 
             {validActions.map(({ label, action, isDestructive }) => (
                 <button
                     key={label}
-                    onClick={() => {
+                    onClick={(e) => {
+                        e.stopPropagation();
                         action();
                         onClose();
                     }}

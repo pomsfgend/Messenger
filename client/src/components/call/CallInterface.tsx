@@ -3,11 +3,10 @@ import { useCallState, acceptCall, rejectCall, endCall, toggleMute, toggleCamera
 import { User } from '../../types';
 import Avatar from '../Avatar';
 import { 
-    PhoneIcon, PhoneMissedIcon, PhoneOffIcon, 
-    MicIcon, MicOffIcon, VideoIcon, VideoOffIcon,
-    CameraSwitchIcon, MinimizeIcon, MaximizeIcon,
-    ConnectionIcon
+    PhoneIcon, PhoneOffIcon, MicIcon, MicOffIcon, VideoIcon, VideoOffIcon,
+    CameraSwitchIcon, MinimizeIcon, MaximizeIcon, ConnectionIcon
 } from './CallIcons';
+import { useDraggable } from '../../hooks/useDraggable';
 
 export const CallInterface: React.FC = () => {
     const {
@@ -18,18 +17,22 @@ export const CallInterface: React.FC = () => {
         isCameraOff,
         incomingCall,
         peer,
-        cameraFacingMode
+        cameraFacingMode,
+        connectionQuality,
+        peerConnectionQuality
     } = useCallState();
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const ringtoneRef = useRef<HTMLAudioElement>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
+    const { transform } = useDraggable(wrapperRef, wrapperRef, 'call-window');
+    
     const [peerInfo, setPeerInfo] = useState<User | null>(null);
     const [callTime, setCallTime] = useState(0);
     const [callTimer, setCallTimer] = useState<number | null>(null);
     const [isMinimized, setIsMinimized] = useState(false);
-    const [connectionQuality, setConnectionQuality] = useState<number>(100); // 0-100%
-    const qualityTimerRef = useRef<number | null>(null);
     
     useEffect(() => {
         setVideoRefs({ local: localVideoRef, remote: remoteVideoRef });
@@ -47,24 +50,15 @@ export const CallInterface: React.FC = () => {
         }
     }, [remoteStream]);
 
-    // Handle visibility change to pause/resume video
+    // Ringtone effect
     useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (localStream) {
-                const videoTrack = localStream.getVideoTracks()[0];
-                if (videoTrack) {
-                    // Only toggle if the camera isn't manually turned off
-                    if (!isCameraOff) {
-                         videoTrack.enabled = document.visibilityState === 'visible';
-                    }
-                }
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [localStream, isCameraOff]);
+        if (callStatus === 'incoming' && ringtoneRef.current) {
+            ringtoneRef.current.play().catch(e => console.error("Ringtone play failed:", e));
+        } else if (ringtoneRef.current) {
+            ringtoneRef.current.pause();
+            ringtoneRef.current.currentTime = 0;
+        }
+    }, [callStatus]);
 
     // Call timer
     useEffect(() => {
@@ -84,23 +78,6 @@ export const CallInterface: React.FC = () => {
         };
     }, [callStatus, callTimer]);
 
-    // Simulate connection quality
-    useEffect(() => {
-        if (callStatus === 'in-call') {
-            qualityTimerRef.current = window.setInterval(() => {
-                // In a real app, this would use the WebRTC statistics API
-                const simulatedQuality = Math.max(30, Math.floor(Math.random() * 100));
-                setConnectionQuality(simulatedQuality);
-            }, 3000);
-        }
-
-        return () => {
-            if (qualityTimerRef.current) {
-                clearInterval(qualityTimerRef.current);
-            }
-        };
-    }, [callStatus]);
-
     // Update peer info
     useEffect(() => {
         if (peer) {
@@ -116,7 +93,8 @@ export const CallInterface: React.FC = () => {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const getQualityColor = (quality: number) => {
+    const getQualityColor = (quality: number | null) => {
+        if (quality === null) return 'bg-gray-500';
         if (quality > 70) return 'bg-green-500';
         if (quality > 40) return 'bg-yellow-500';
         return 'bg-red-500';
@@ -135,9 +113,15 @@ export const CallInterface: React.FC = () => {
         return null;
     }
 
+    // Always render the ringtone audio element
+    const renderRingtone = () => (
+        <audio ref={ringtoneRef} src="/assets/notification.mp3" loop preload="auto" />
+    );
+
     if (callStatus === 'incoming' && peerInfo) {
         return (
              <div className="fixed inset-0 z-[2000] bg-gray-900/90 backdrop-blur-lg flex flex-col justify-between items-center p-8 animate-fade-in">
+                {renderRingtone()}
                 <div className="text-center text-white mt-16">
                      <Avatar user={peerInfo} size="large" />
                      <p className="text-2xl font-bold mt-4">{peerInfo.name}</p>
@@ -155,39 +139,24 @@ export const CallInterface: React.FC = () => {
         )
     }
 
-    if (isMinimized) {
-        return (
-            <div className="fixed bottom-28 right-5 w-32 md:w-40 aspect-[3/4] rounded-lg overflow-hidden shadow-2xl bg-black z-[2000] animate-fade-in-up">
-                <video 
-                    ref={localVideoRef}
-                    autoPlay 
-                    playsInline 
-                    muted 
-                    className="w-full h-full object-cover"
-                />
-                <button 
-                    onClick={toggleMinimize}
-                    className="absolute top-1 right-1 bg-white/30 rounded-full p-1.5 backdrop-blur-sm"
-                >
-                    <MaximizeIcon />
-                </button>
-            </div>
-        );
-    }
-
     return (
-        <div className="fixed inset-0 z-[2000] bg-gray-900 flex flex-col overflow-hidden">
+        <div 
+            ref={wrapperRef}
+            style={!isMinimized ? { transform: 'translate(0,0)'} : { transform: `translate(${transform.x}px, ${transform.y}px)` }}
+            className={`fixed z-[2000] bg-gray-900 flex flex-col overflow-hidden transition-all duration-300 ease-in-out call-window-wrapper ${isMinimized ? 'minimized' : 'inset-0'}`}
+        >
+            {renderRingtone()}
             {/* Main Video Area */}
-            <div className="flex-grow relative">
+            <div className={`flex-grow relative min-h-0 ${isMinimized ? 'w-full h-full' : ''}`}>
                 <video 
                     ref={remoteVideoRef}
                     autoPlay 
                     playsInline 
-                    className="w-full h-full object-contain bg-black"
+                    className={`w-full h-full bg-black ${isMinimized ? 'object-cover' : 'object-contain'}`}
                 />
                 
-                {/* Self-view Picture-in-Picture */}
-                <div className="absolute bottom-[120px] sm:bottom-4 right-4 w-32 h-48 md:w-40 md:h-60 rounded-lg overflow-hidden shadow-lg border-2 border-white/20">
+                {/* Self-view Picture-in-Picture - hidden when minimized */}
+                <div className={`absolute bottom-[120px] sm:bottom-4 right-4 w-32 h-48 md:w-40 md:h-60 rounded-lg overflow-hidden shadow-lg border-2 border-white/20 transition-opacity ${isMinimized ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                     <video 
                         ref={localVideoRef}
                         autoPlay 
@@ -197,8 +166,8 @@ export const CallInterface: React.FC = () => {
                     />
                 </div>
                 
-                {/* Call Info Overlay */}
-                <div className="absolute top-4 left-4 right-4 flex justify-center pointer-events-none">
+                {/* Call Info Overlay - hidden when minimized */}
+                <div className={`absolute top-4 left-4 right-4 flex justify-center pointer-events-none transition-opacity ${isMinimized ? 'opacity-0' : 'opacity-100'}`}>
                     {peerInfo && (
                         <div className="bg-black/50 rounded-full py-2 px-5 text-white text-center backdrop-blur-sm">
                             <div className="text-xl font-bold">
@@ -211,32 +180,42 @@ export const CallInterface: React.FC = () => {
                     )}
                 </div>
 
-                {/* Connection Quality Indicator */}
+                {/* Connection Quality Indicator - hidden when minimized */}
                 {callStatus === 'in-call' && (
-                    <div className="absolute top-4 right-4 flex items-center bg-black/50 rounded-full px-3 py-1.5 backdrop-blur-sm">
-                        <ConnectionIcon />
-                        <div className="ml-2 flex items-center">
+                    <div className={`absolute top-4 right-4 flex flex-col items-end gap-1.5 bg-black/50 rounded-lg px-3 py-1.5 backdrop-blur-sm text-white text-xs transition-opacity ${isMinimized ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                        <div className="flex items-center gap-2" title="Your Connection">
+                            <span className="font-bold">You</span>
                             <div className="w-16 bg-gray-700 rounded-full h-1.5">
-                                <div 
-                                    className={`h-1.5 rounded-full ${getQualityColor(connectionQuality)}`}
-                                    style={{ width: `${connectionQuality}%` }}
-                                ></div>
+                                <div className={`h-1.5 rounded-full ${getQualityColor(connectionQuality)} transition-all duration-300`} style={{ width: `${connectionQuality}%` }}></div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2" title={`${peerInfo?.name}'s Connection`}>
+                            <span className="font-bold">Peer</span>
+                            <div className="w-16 bg-gray-700 rounded-full h-1.5">
+                                <div className={`h-1.5 rounded-full ${getQualityColor(peerConnectionQuality)} transition-all duration-300`} style={{ width: `${peerConnectionQuality ?? 100}%` }}></div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Minimize Button */}
+
+                {/* Minimize/Maximize Buttons */}
                 <button 
                     onClick={toggleMinimize}
-                    className="absolute top-4 left-4 bg-black/50 rounded-full p-2.5 backdrop-blur-sm pointer-events-auto"
+                    className={`absolute top-4 left-4 bg-black/50 rounded-full p-2.5 backdrop-blur-sm pointer-events-auto transition-opacity ${isMinimized ? 'opacity-0' : 'opacity-100'}`}
                 >
                     <MinimizeIcon />
                 </button>
+                 <button 
+                    onClick={toggleMinimize}
+                    className={`absolute top-1 right-1 bg-white/30 rounded-full p-1.5 backdrop-blur-sm transition-opacity ${isMinimized ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                >
+                    <MaximizeIcon />
+                </button>
             </div>
 
-            {/* Controls Panel */}
-            <div className="bg-black/50 py-4 flex justify-center space-x-4 sm:space-x-8 flex-shrink-0">
+            {/* Controls Panel - hidden when minimized */}
+            <div className={`bg-black/50 py-4 flex justify-center space-x-4 sm:space-x-8 flex-shrink-0 transition-opacity ${isMinimized ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                 {(callStatus === 'in-call' || callStatus === 'calling') && (
                     <>
                         <button onClick={toggleMute} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${ isMuted ? 'bg-red-500' : 'bg-gray-700 hover:bg-gray-600' }`}>

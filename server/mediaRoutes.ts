@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { getDb } from './src/db';
 import { readFileToBuffer, sanitizeMediaUrl } from './src/fileUtils';

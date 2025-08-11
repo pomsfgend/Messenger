@@ -3,7 +3,6 @@ import { useSocket } from "./useSocket";
 import * as api from '../services/api';
 import { User } from "../types";
 import toast from "react-hot-toast";
-import IncomingCallToast from "../components/IncomingCallToast";
 
 // --- STATE MANAGEMENT (Vanilla store with listeners) ---
 
@@ -16,6 +15,8 @@ interface CallState {
     peer: User | null;
     incomingCall: { caller: User; offer: RTCSessionDescriptionInit } | null;
     cameraFacingMode: 'user' | 'environment';
+    connectionQuality: number;
+    peerConnectionQuality: number | null;
 }
 
 const initialState: CallState = {
@@ -27,6 +28,8 @@ const initialState: CallState = {
     peer: null,
     incomingCall: null,
     cameraFacingMode: 'user',
+    connectionQuality: 100,
+    peerConnectionQuality: null,
 };
 
 let state = { ...initialState };
@@ -261,10 +264,57 @@ const setupSocketListeners = () => {
             pcRef.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(console.error);
         }
     };
+    
+    const handleQualityUpdate = (data: { quality: number }) => {
+        setState(s => ({ ...s, peerConnectionQuality: data.quality }));
+    };
 
     socketInstance.on('call:incoming', handleIncomingCall);
     socketInstance.on('webrtc:answer', handleAnswer);
     socketInstance.on('webrtc:ice-candidate', handleIceCandidate);
     socketInstance.on('call:rejected', endCallCleanup);
     socketInstance.on('call:end', endCallCleanup);
+    socketInstance.on('call:quality-update', handleQualityUpdate);
 };
+
+
+// --- Connection Quality Polling ---
+setInterval(async () => {
+    if (state.callStatus !== 'in-call' || !pcRef || !socketInstance || !state.peer) {
+        return;
+    }
+
+    try {
+        const stats = await pcRef.getStats();
+        let packetsLost = 0;
+        let jitter = 0;
+        let roundTripTime = 0;
+        let score = 100;
+
+        stats.forEach(report => {
+            if (report.type === 'remote-inbound-rtp' && report.kind === 'video') {
+                packetsLost = report.packetsLost ?? packetsLost;
+                jitter = report.jitter ?? jitter;
+            }
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                roundTripTime = report.currentRoundTripTime ?? roundTripTime;
+            }
+        });
+        
+        // Scoring logic (can be fine-tuned)
+        score -= packetsLost * 1; // Each lost packet reduces score
+        score -= jitter * 500;   // Jitter (in seconds) has a large impact
+        score -= roundTripTime * 100; // Round trip time (in seconds) also impacts
+        
+        const finalScore = Math.max(0, Math.min(100, Math.round(score)));
+        
+        if (finalScore !== state.connectionQuality) {
+            setState(s => ({ ...s, connectionQuality: finalScore }));
+            socketInstance.emit('call:quality-update', { to: state.peer!.id, quality: finalScore });
+        }
+
+    } catch (error) {
+        console.warn("Could not get WebRTC stats:", error);
+    }
+
+}, 3000);
