@@ -7,6 +7,7 @@ import InlineVideoCirclePlayer from './InlineVideoCirclePlayer';
 import { useSocket } from '../hooks/useSocket';
 import AudioPlayer from './AudioPlayer';
 import { formatTime } from '../helpers/time';
+import { FaPencilAlt } from 'react-icons/fa';
 
 const MediaPlaceholder: React.FC<{ type: Message['type'] }> = ({ type }) => {
     const icon = {
@@ -224,7 +225,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     ].join(' ');
 
     const bubbleInnerClasses = [
-        'flex items-end gap-3 group relative', // Added relative for action buttons
+        'flex items-end gap-3 group relative p-1',
         selectionMode ? 'cursor-pointer' : '',
     ].filter(Boolean).join(' ');
 
@@ -316,7 +317,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 id={message.id}
                 onContextMenu={(e) => !selectionMode && onContextMenu(e, message)}
                 onClick={() => selectionMode && onToggleSelect(message.id)}
-                className={bubbleInnerClasses}
+                className={`${bubbleInnerClasses} ${isSelected ? 'bg-indigo-500/20 dark:bg-indigo-500/10 rounded-2xl' : ''}`}
             >
                 {!isOwn && (
                     <div className="cursor-pointer" onClick={() => !selectionMode && sender && onViewProfile(sender)}>
@@ -326,8 +327,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                 {isOwn && !selectionMode && (
                     <div className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={(e) => onContextMenu(e, message)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
+                         <button onClick={(e) => onContextMenu(e, message)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
+                             <FaPencilAlt className="w-3 h-3"/>
                         </button>
                     </div>
                 )}

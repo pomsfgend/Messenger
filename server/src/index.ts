@@ -1,4 +1,3 @@
-
 import express, { Request, Response, NextFunction } from 'express';
 import './types'; // Import for declaration merging
 import http from 'http';

@@ -1,4 +1,3 @@
-
 import express, { Request, Response } from 'express';
 import { getDb } from '../db';
 import { protect } from '../auth';

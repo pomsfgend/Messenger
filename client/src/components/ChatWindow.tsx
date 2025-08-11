@@ -20,10 +20,12 @@ import MessageBubble from './MessageBubble';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { useTheme } from '../hooks/useTheme';
 import VideoRecorderModal from './VideoRecorderModal';
-import { FaVideo, FaMicrophone, FaEllipsisV, FaBell, FaBellSlash, FaSmile, FaTimes } from 'react-icons/fa';
+import { FaVideo, FaMicrophone, FaEllipsisV, FaBell, FaBellSlash, FaSmile, FaTimes, FaDownload, FaUsers } from 'react-icons/fa';
 import { startCall } from '../hooks/useCall';
 import { isMobile } from 'react-device-detect';
 import ForwardMessageModal from './ForwardMessageModal';
+import MessageActionBar from './MessageActionBar';
+import { processVideoCircleForDownload } from '../utils/mediaProcessor';
 
 
 const AudioRecorder: React.FC<{ onSend: (file: File) => void; onCancel: () => void; }> = ({ onSend, onCancel }) => {
@@ -593,8 +595,19 @@ const ChatWindow: React.FC<{
     };
 
     const getContextMenuActions = (message: Message): (Action | false | undefined)[] => [
+        { label: t('common.select'), action: () => {
+            setSelectionMode(true);
+            setSelectedMessages(new Set([message.id]));
+        }},
         { label: t('chat.react'), action: () => setIsReacting(message.id) },
         { label: t('chat.forward'), action: () => setForwardingMessage(message) },
+        message.type === 'video_circle' && { label: t('common.download'), action: async () => {
+             toast.promise(processVideoCircleForDownload(`/api/media/${message.mediaUrl}`), {
+                loading: 'Обработка видео...',
+                success: 'Загрузка началась!',
+                error: 'Не удалось обработать видео.'
+            });
+        }},
         message.senderId === currentUser?.id && { label: t('common.edit'), action: () => {
             setEditingMessage(message);
             setNewMessage(message.content);
@@ -612,6 +625,32 @@ const ChatWindow: React.FC<{
             }
         }
     ];
+
+    const handleToggleSelect = (messageId: string) => {
+        setSelectedMessages(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(messageId)) {
+                newSet.delete(messageId);
+            } else {
+                newSet.add(messageId);
+            }
+            if (newSet.size === 0) {
+                setSelectionMode(false);
+            }
+            return newSet;
+        });
+    };
+    
+    const handleDeleteSelected = async () => {
+        try {
+            await api.bulkDeleteMessages(Array.from(selectedMessages));
+            setSelectionMode(false);
+            setSelectedMessages(new Set());
+        } catch {
+            toast.error(t('toast.deleteMessageError'));
+        }
+        setDeleteConfirmOpen(false);
+    };
 
     const renderChatContent = () => {
         if (isLoading) return <div className="flex-1 flex justify-center items-center"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div></div>;
@@ -635,7 +674,7 @@ const ChatWindow: React.FC<{
                             const startIndex = mediaItems.findIndex(i => i.id === m.id);
                             if(startIndex > -1) setMediaViewerState({ items: mediaItems, startIndex });
                         }}
-                        onToggleSelect={console.log}
+                        onToggleSelect={handleToggleSelect}
                         selectionMode={selectionMode}
                         isSelected={selectedMessages.has(msg.id)}
                         isReacting={isReacting === msg.id}
@@ -660,12 +699,26 @@ const ChatWindow: React.FC<{
         <div className="flex flex-col h-[var(--app-height)] bg-slate-100 dark:bg-slate-900 min-w-0">
             {viewingProfile && <ViewProfileModal user={viewingProfile} onClose={() => setViewingProfile(null)} onStartChat={(userId) => { setViewingProfile(null); navigate(`/app/chat/${[currentUser!.id, userId].sort().join('-')}`)}} />}
             {mediaPreview && <MediaUploadPreviewModal item={mediaPreview} onClose={() => setMediaPreview(null)} onSend={handleSendFile} />}
-            {isDeleteConfirmOpen && <ConfirmationModal isOpen={isDeleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} onConfirm={()=>{}} title="Delete Messages" message={`Are you sure you want to delete ${selectedMessages.size} messages?`} />}
+            {isDeleteConfirmOpen && <ConfirmationModal isOpen={isDeleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} onConfirm={handleDeleteSelected} title={t('common.delete')} message={t('chat.deleteConfirm', { count: selectedMessages.size })} />}
             {contextMenu && <MessageContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} actions={getContextMenuActions(contextMenu.message)} />}
             {mediaViewerState && <MediaViewerModal items={mediaViewerState.items} startIndex={mediaViewerState.startIndex} onClose={() => setMediaViewerState(null)} />}
             {forwardingMessage && <ForwardMessageModal messageToForward={forwardingMessage} sender={chatUsers[forwardingMessage.senderId]} onClose={() => setForwardingMessage(null)} />}
             {isRecordingVideo && <VideoRecorderModal onClose={() => setIsRecordingVideo(false)} onSend={(file) => handleSendFile(file, '', 'video_circle')} />}
             {isChatInfoModalOpen && <GlobalChatInfoModal onClose={() => setIsChatInfoModalOpen(false)} />}
+            
+            <AnimatePresence>
+                {selectionMode && selectedMessages.size > 0 && (
+                    <MessageActionBar
+                        selectedCount={selectedMessages.size}
+                        onCancel={() => { setSelectionMode(false); setSelectedMessages(new Set()); }}
+                        onDelete={() => setDeleteConfirmOpen(true)}
+                        onForward={() => {
+                            const firstSelected = messages.find(m => m.id === Array.from(selectedMessages)[0]);
+                            if (firstSelected) setForwardingMessage(firstSelected);
+                        }}
+                    />
+                )}
+            </AnimatePresence>
             
             <header className="flex-shrink-0 flex items-center justify-between p-3 border-b border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md z-20">
                 <div className="flex items-center gap-3 min-w-0">
@@ -681,7 +734,7 @@ const ChatWindow: React.FC<{
                         </div>
                     ) : (
                         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setIsChatInfoModalOpen(true)}>
-                            <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
+                             <div className="w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center"><FaUsers className="h-5 w-5"/></div>
                             <p className="font-semibold">{t('sidebar.globalChat')}</p>
                         </div>
                     )}
@@ -699,7 +752,7 @@ const ChatWindow: React.FC<{
                                  {chatId && chatId.includes('-') && (
                                      <button onClick={() => navigate('/app')} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600">
                                          <FaTimes />
-                                         <span>Закрыть чат</span>
+                                         <span>{t('chat.closeChat')}</span>
                                      </button>
                                  )}
                              </div>

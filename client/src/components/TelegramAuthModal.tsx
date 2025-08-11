@@ -14,7 +14,7 @@ export const TelegramAuthModal = () => {
 
     useEffect(() => {
         const isTelegramWebApp = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData;
-        if (isTelegramWebApp && !currentUser) {
+        if (isTelegramWebApp && currentUser === null) {
             setShowModal(true);
         }
     }, [currentUser]);

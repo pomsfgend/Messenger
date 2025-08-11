@@ -9,12 +9,7 @@ import Avatar from '../components/Avatar';
 import './AdminPage.css';
 import { useDraggable } from '../hooks/useDraggable';
 import { useResizable } from '../hooks/useResizable';
-
-// Inline SVG Icons to remove external dependency
-const UsersIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-const WifiIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.55a8 8 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a4 4 0 0 1 6.95 0"/><line x1="12" x2="12.01" y1="20" y2="20"/></svg>;
-const GavelIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m14 13-8.5 8.5"/><path d="m18 9 -6 6"/><path d="m9 18 6-6"/><path d="M15 3a1 1 0 0 0-1 1l-2 2a1 1 0 0 0 0 1.5l4 4a1 1 0 0 0 1.5 0l2-2a1 1 0 0 0 1-1Z"/><path d="m22 6-6 6"/></svg>;
-
+import { FaUsers, FaWifi, FaGavel } from 'react-icons/fa';
 
 const StatCard: React.FC<{ title: string, value: string | number, icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="stat-card glass">
@@ -104,9 +99,9 @@ const AdminPage: React.FC = () => {
             </div>
 
             <div className="stats-grid-admin">
-                <StatCard title="Всего пользователей" value={stats.total} icon={<UsersIcon />} />
-                <StatCard title="Сейчас онлайн" value={stats.online} icon={<WifiIcon />} />
-                <StatCard title="Забаненные" value={stats.banned} icon={<GavelIcon />} />
+                <StatCard title="Всего пользователей" value={stats.total} icon={<FaUsers />} />
+                <StatCard title="Сейчас онлайн" value={stats.online} icon={<FaWifi />} />
+                <StatCard title="Забаненные" value={stats.banned} icon={<FaGavel />} />
             </div>
 
             <div className="admin-table-container glass">

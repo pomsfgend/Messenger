@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useCallState, acceptCall, rejectCall, endCall, toggleMute, toggleCamera, switchCamera, setVideoRefs } from '../../hooks/useCall';
 import { User } from '../../types';
+import Avatar from '../Avatar';
 import { 
     PhoneIcon, PhoneMissedIcon, PhoneOffIcon, 
     MicIcon, MicOffIcon, VideoIcon, VideoOffIcon,
@@ -134,6 +135,26 @@ export const CallInterface: React.FC = () => {
         return null;
     }
 
+    if (callStatus === 'incoming' && peerInfo) {
+        return (
+             <div className="fixed inset-0 z-[2000] bg-gray-900/90 backdrop-blur-lg flex flex-col justify-between items-center p-8 animate-fade-in">
+                <div className="text-center text-white mt-16">
+                     <Avatar user={peerInfo} size="large" />
+                     <p className="text-2xl font-bold mt-4">{peerInfo.name}</p>
+                     <p className="text-lg text-gray-300">Входящий звонок...</p>
+                </div>
+                <div className="flex items-center gap-12">
+                     <button onClick={rejectCall} className="w-20 h-20 rounded-full bg-red-600 flex items-center justify-center transition-transform hover:scale-110">
+                        <PhoneOffIcon />
+                    </button>
+                     <button onClick={acceptCall} className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center transition-transform hover:scale-110">
+                        <PhoneIcon />
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
     if (isMinimized) {
         return (
             <div className="fixed bottom-28 right-5 w-32 md:w-40 aspect-[3/4] rounded-lg overflow-hidden shadow-2xl bg-black z-[2000] animate-fade-in-up">
@@ -216,16 +237,7 @@ export const CallInterface: React.FC = () => {
 
             {/* Controls Panel */}
             <div className="bg-black/50 py-4 flex justify-center space-x-4 sm:space-x-8 flex-shrink-0">
-                {callStatus === 'incoming' ? (
-                    <>
-                        <button onClick={rejectCall} className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center transition-transform hover:scale-110">
-                            <PhoneMissedIcon />
-                        </button>
-                        <button onClick={acceptCall} className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center transition-transform hover:scale-110">
-                            <PhoneIcon />
-                        </button>
-                    </>
-                ) : (
+                {(callStatus === 'in-call' || callStatus === 'calling') && (
                     <>
                         <button onClick={toggleMute} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${ isMuted ? 'bg-red-500' : 'bg-gray-700 hover:bg-gray-600' }`}>
                             {isMuted ? <MicOffIcon /> : <MicIcon />}

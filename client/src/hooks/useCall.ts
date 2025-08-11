@@ -246,12 +246,6 @@ const setupSocketListeners = () => {
         // Only accept a new call if not already in one
         if (state.callStatus === 'idle') {
             setState(s => ({ ...s, incomingCall: { caller: data.from, offer: data.offer }, peer: data.from, callStatus: 'incoming' }));
-            // Show the toast notification
-            IncomingCallToast({
-                caller: data.from,
-                onAccept: acceptCall,
-                onReject: rejectCall
-            });
         }
     };
 

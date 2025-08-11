@@ -1,4 +1,5 @@
-import express, { Router, NextFunction } from 'express';
+
+import express, { Router } from 'express';
 import { getDb } from './src/db';
 import { isModeratorOrAdmin } from './src/auth';
 import fs from 'fs/promises';
@@ -30,7 +31,7 @@ router.get('/users', isModeratorOrAdmin, async (req: express.Request, res: expre
 });
 
 // Middleware to check if a user can perform an action on another user.
-const checkPermissions = async (req: express.Request, res: express.Response, next: NextFunction) => {
+const checkPermissions = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const { userId: targetUserId } = req.params;
     const requester = req.user!;
     
