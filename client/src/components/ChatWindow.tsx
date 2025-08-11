@@ -594,6 +594,7 @@ const ChatWindow: React.FC<{
     };
 
     const handleShowMenuFromClick = (event: React.MouseEvent, message: Message) => {
+        event.stopPropagation();
         const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
         setContextMenu({ x: rect.left, y: rect.bottom + 8, message });
     };

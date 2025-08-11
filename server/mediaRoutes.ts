@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import { getDb } from './src/db';
 import { readFileToBuffer, sanitizeMediaUrl } from './src/fileUtils';
 import path from 'path';
@@ -9,7 +9,7 @@ import './src/types'; // Ensures declaration merging for req.user is picked up
 
 const router = express.Router();
 
-router.get('/:filename', async (req: Request, res: Response) => {
+router.get('/:filename', async (req: express.Request, res: express.Response) => {
     const { filename: rawFilename } = req.params;
     const currentUserId = req.user!.id;
     const db = getDb();

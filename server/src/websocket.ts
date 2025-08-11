@@ -23,14 +23,18 @@ const addUserSocket = (userId: string, socketId: string) => {
     if (!userSockets.has(userId)) {
         userSockets.set(userId, new Set());
     }
-    userSockets.get(userId)!.add(socketId);
-    onlineUsers.add(userId);
+    const userSocketSet = userSockets.get(userId)!;
+    if (userSocketSet.size === 0) {
+        onlineUsers.add(userId);
+    }
+    userSocketSet.add(socketId);
 };
 
 const removeUserSocket = (userId: string, socketId: string) => {
     if (userSockets.has(userId)) {
-        userSockets.get(userId)!.delete(socketId);
-        if (userSockets.get(userId)!.size === 0) {
+        const userSocketSet = userSockets.get(userId)!;
+        userSocketSet.delete(socketId);
+        if (userSocketSet.size === 0) {
             userSockets.delete(userId);
             onlineUsers.delete(userId);
         }
@@ -101,7 +105,7 @@ export const initializeWebSocket = (io: Server) => {
         if (!authSocket.user) return;
 
         const userId = authSocket.user.id;
-        const wasOffline = !userSockets.has(userId);
+        const wasOffline = !userSockets.has(userId) || userSockets.get(userId)!.size === 0;
 
         authSocket.join(userId);
         addUserSocket(userId, authSocket.id);
@@ -378,13 +382,13 @@ export const initializeWebSocket = (io: Server) => {
 
 
         authSocket.on('disconnect', async () => {
-            const wasLastSocket = userSockets.has(userId) && userSockets.get(userId)!.size === 1;
             removeUserSocket(userId, authSocket.id);
+            const isStillOnline = userSockets.has(userId) && userSockets.get(userId)!.size > 0;
 
             io.to(activeCalls.get(userId)!).emit('call:end');
             activeCalls.delete(userId);
             
-            if (wasLastSocket && !userSockets.has(userId)) {
+            if (!isStillOnline) {
                 try {
                     userActiveChat.delete(userId);
                     userWindowFocus.delete(userId);

@@ -102,7 +102,7 @@ export const useDraggable = (
         return currentTransform;
       });
 
-      document.addEventListener('mousemove', onDragMove, { passive: false });
+      document.addEventListener('mousemove', onDragMove, { passive: true });
       document.addEventListener('mouseup', onDragEnd);
       document.addEventListener('touchmove', onDragMove, { passive: false });
       document.addEventListener('touchend', onDragEnd);
