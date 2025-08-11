@@ -170,13 +170,12 @@
 
 /* Call Interface Styles for Minimized State */
 .call-window-wrapper.minimized {
-    @apply bottom-28 right-5 w-40 aspect-[3/4] rounded-lg shadow-2xl;
+    @apply w-40 aspect-[3/4] rounded-lg shadow-2xl;
+    /* Position is handled by transform for draggability */
+    bottom: 1rem;
+    right: 1rem;
     /* Reset fullscreen properties */
     top: auto;
     left: auto;
     height: auto;
-}
-
-.call-window-wrapper.minimized video {
-    @apply w-full h-full object-cover;
 }

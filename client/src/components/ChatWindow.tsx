@@ -742,7 +742,7 @@ const ChatWindow: React.FC<{
                 <div className="flex items-center gap-2 relative">
                     {partner && <button onClick={() => startCall(partner)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaVideo className="w-5 h-5"/></button>}
                     <div ref={chatMenuRef} className="relative">
-                         <button onClick={() => setIsChatMenuOpen(p => !p)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaEllipsisV className="w-5 h-5"/></button>
+                         <button onClick={(e) => { e.stopPropagation(); setIsChatMenuOpen(p => !p); }} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700"><FaEllipsisV className="w-5 h-5"/></button>
                          {isChatMenuOpen && (
                              <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-700 rounded-lg shadow-xl z-30 py-1">
                                  <button onClick={handleToggleMute} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600">

@@ -139,20 +139,25 @@ export const CallInterface: React.FC = () => {
         )
     }
 
+    const wrapperClasses = [
+        'fixed z-[2000] bg-gray-900 flex flex-col overflow-hidden transition-all duration-300 ease-in-out call-window-wrapper',
+        isMinimized ? 'minimized' : 'inset-0'
+    ].join(' ');
+
     return (
         <div 
             ref={wrapperRef}
-            style={!isMinimized ? { transform: 'translate(0,0)'} : { transform: `translate(${transform.x}px, ${transform.y}px)` }}
-            className={`fixed z-[2000] bg-gray-900 flex flex-col overflow-hidden transition-all duration-300 ease-in-out call-window-wrapper ${isMinimized ? 'minimized' : 'inset-0'}`}
+            style={isMinimized ? { transform: `translate(${transform.x}px, ${transform.y}px)` } : {}}
+            className={wrapperClasses}
         >
             {renderRingtone()}
             {/* Main Video Area */}
-            <div className={`flex-grow relative min-h-0 ${isMinimized ? 'w-full h-full' : ''}`}>
+            <div className="flex-grow relative min-h-0 w-full h-full">
                 <video 
                     ref={remoteVideoRef}
                     autoPlay 
                     playsInline 
-                    className={`w-full h-full bg-black ${isMinimized ? 'object-cover' : 'object-contain'}`}
+                    className={`w-full h-full bg-black ${isMinimized ? 'object-cover pointer-events-none' : 'object-contain'}`}
                 />
                 
                 {/* Self-view Picture-in-Picture - hidden when minimized */}

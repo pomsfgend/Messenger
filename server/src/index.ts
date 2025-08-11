@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import './types'; // Import for declaration merging
 import http from 'http';
 import https from 'https';
@@ -61,7 +61,7 @@ app.use('/assets', express.static(path.join(__dirname, '..', 'assets')));
 
 const getPublicIp = (): Promise<string> => {
     return new Promise((resolve, reject) => {
-        https.get('https://api.ipify.org?format=json', (res) => {
+        https.get('https://api.ipify.org?format=json', (res: http.IncomingMessage) => {
             let data = '';
             res.on('data', (chunk) => { data += chunk; });
             res.on('end', () => {
@@ -165,10 +165,10 @@ const startServer = async () => {
         app.use('/api/turn-creds', protect, turnRoutes); // TURN credentials endpoint
 
         // Health check endpoint
-        app.get('/api/health', (req: express.Request, res: express.Response) => res.status(200).json({ status: 'ok' }));
+        app.get('/api/health', (req: ExpressRequest, res: ExpressResponse) => res.status(200).json({ status: 'ok' }));
 
         // Global error handler
-        app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
             console.error("Global error handler caught:", err.stack);
             if (err instanceof MulterError) {
                 return res.status(400).json({ message: `File upload error: ${err.message}` });

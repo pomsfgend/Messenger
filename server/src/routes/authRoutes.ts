@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -209,7 +209,7 @@ const transformUser = (dbUser: any): User => {
     return user as User;
 };
 
-const generateToken = (res: express.Response, userId: string) => {
+const generateToken = (res: ExpressResponse, userId: string) => {
     const secret = config.JWT_SECRET;
     if (!secret) {
         console.error("FATAL: JWT_SECRET is not defined in config.ts file!");
@@ -228,7 +228,7 @@ const generateToken = (res: express.Response, userId: string) => {
     });
 };
 
-const handle2FAChallenge = async (res: express.Response, user: User) => {
+const handle2FAChallenge = async (res: ExpressResponse, user: User) => {
     if (!user.telegramId || !bot) {
         return res.status(400).json({ message: '2FA is enabled but Telegram is not linked or bot is not configured.' });
     }
@@ -244,7 +244,7 @@ const handle2FAChallenge = async (res: express.Response, user: User) => {
 }
 
 // --- REST API Routes ---
-router.get('/me', protect, async (req: express.Request, res: express.Response) => {
+router.get('/me', protect, async (req: ExpressRequest, res: ExpressResponse) => {
     const db = getDb();
     try {
         const user = await db.get(`SELECT ${userFieldsToSelect} FROM users WHERE id = ?`, req.user!.id);
@@ -258,7 +258,7 @@ router.get('/me', protect, async (req: express.Request, res: express.Response) =
     }
 });
 
-router.post('/register', async (req: express.Request, res: express.Response) => {
+router.post('/register', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password, name } = req.body;
     if (!username || !password || !name) {
         return res.status(400).json({ message: 'Please provide username, password, and name.' });
@@ -273,18 +273,20 @@ router.post('/register', async (req: express.Request, res: express.Response) => 
 
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
+        const now = new Date().toISOString();
         const newUser = {
             id: `user_${crypto.randomBytes(8).toString('hex')}`,
             username,
             password_hash: passwordHash,
             name,
             uniqueId: username,
-            createdAt: new Date().toISOString(),
+            createdAt: now,
+            last_seen: now,
         };
 
         await db.run(
-            'INSERT INTO users (id, username, password_hash, name, uniqueId, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
-            [newUser.id, newUser.username, newUser.password_hash, newUser.name, newUser.uniqueId, newUser.createdAt]
+            'INSERT INTO users (id, username, password_hash, name, uniqueId, createdAt, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [newUser.id, newUser.username, newUser.password_hash, newUser.name, newUser.uniqueId, newUser.createdAt, newUser.last_seen]
         );
 
         generateToken(res, newUser.id);
@@ -296,7 +298,7 @@ router.post('/register', async (req: express.Request, res: express.Response) => 
     }
 });
 
-router.post('/login', async (req: express.Request, res: express.Response) => {
+router.post('/login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username, password } = req.body;
     const db = getDb();
     const user = await db.get('SELECT * FROM users WHERE username = ? AND is_anonymous = 0', username);
@@ -313,7 +315,7 @@ router.post('/login', async (req: express.Request, res: express.Response) => {
     }
 });
 
-router.post('/anonymous-login', async (req: express.Request, res: express.Response) => {
+router.post('/anonymous-login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { username: displayName } = req.body; // Rename for clarity
     if (!displayName) {
         return res.status(400).json({ message: 'Guest username is required.' });
@@ -324,18 +326,20 @@ router.post('/anonymous-login', async (req: express.Request, res: express.Respon
         // FIX: Generate a unique internal username for guests to prevent DB constraint errors.
         const internalUsername = `guest_${crypto.randomBytes(6).toString('hex')}`;
         const uniqueId = `guest_${crypto.randomBytes(4).toString('hex')}`;
+        const now = new Date().toISOString();
         
         const newGuestUser = {
             id: `user_${crypto.randomBytes(8).toString('hex')}`,
             username: internalUsername, // Use unique internal name for the username column
             name: displayName,         // Use user-provided name for display
             uniqueId: uniqueId,
-            createdAt: new Date().toISOString(),
+            createdAt: now,
+            last_seen: now,
             is_anonymous: 1,
         };
         
-        await db.run('INSERT INTO users (id, username, name, uniqueId, createdAt, is_anonymous) VALUES (?, ?, ?, ?, ?, ?)', 
-            [newGuestUser.id, newGuestUser.username, newGuestUser.name, newGuestUser.uniqueId, newGuestUser.createdAt, newGuestUser.is_anonymous]);
+        await db.run('INSERT INTO users (id, username, name, uniqueId, createdAt, is_anonymous, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+            [newGuestUser.id, newGuestUser.username, newGuestUser.name, newGuestUser.uniqueId, newGuestUser.createdAt, newGuestUser.is_anonymous, newGuestUser.last_seen]);
         
         generateToken(res, newGuestUser.id);
         const userForClient = await db.get(`SELECT ${userFieldsToSelect} FROM users WHERE id = ?`, newGuestUser.id);
@@ -346,7 +350,7 @@ router.post('/anonymous-login', async (req: express.Request, res: express.Respon
     }
 });
 
-router.post('/google', async (req: express.Request, res: express.Response) => {
+router.post('/google', async (req: ExpressRequest, res: ExpressResponse) => {
     if (!googleClient) return res.status(503).json({ message: 'Google Sign-In is not configured on the server.' });
     
     const { credential } = req.body;
@@ -368,18 +372,20 @@ router.post('/google', async (req: express.Request, res: express.Response) => {
             if (user) {
                 await db.run('UPDATE users SET google_id = ? WHERE id = ?', [payload.sub, user.id]);
             } else {
+                const now = new Date().toISOString();
                 const newUser = {
                     id: `user_${crypto.randomBytes(8).toString('hex')}`,
                     username: payload.email,
                     name: payload.name,
                     uniqueId: payload.email,
-                    createdAt: new Date().toISOString(),
+                    createdAt: now,
                     google_id: payload.sub,
                     avatar_url: payload.picture,
+                    last_seen: now,
                 };
                 await db.run(
-                    'INSERT INTO users (id, username, name, uniqueId, createdAt, google_id, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.createdAt, newUser.google_id, newUser.avatar_url]
+                    'INSERT INTO users (id, username, name, uniqueId, createdAt, google_id, avatar_url, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.createdAt, newUser.google_id, newUser.avatar_url, newUser.last_seen]
                 );
                 user = await db.get('SELECT * FROM users WHERE id = ?', newUser.id);
             }
@@ -399,7 +405,7 @@ router.post('/google', async (req: express.Request, res: express.Response) => {
     }
 });
 
-router.post('/telegram-login', async (req: express.Request, res: express.Response) => {
+router.post('/telegram-login', async (req: ExpressRequest, res: ExpressResponse) => {
     const authData = req.body;
     const { id, first_name, last_name, username, photo_url, auth_date, hash } = authData;
 
@@ -424,18 +430,20 @@ router.post('/telegram-login', async (req: express.Request, res: express.Respons
     try {
         let user = await db.get('SELECT * FROM users WHERE telegram_id = ?', id.toString());
         if (!user) {
+            const now = new Date().toISOString();
             const newUser = {
                 id: `user_${crypto.randomBytes(8).toString('hex')}`,
                 username: `tg_${username || id}`,
                 name: `${first_name}${last_name ? ' ' + last_name : ''}`,
                 uniqueId: `tg_${username || id}`,
-                createdAt: new Date().toISOString(),
+                createdAt: now,
                 telegram_id: id.toString(),
                 avatar_url: photo_url,
+                last_seen: now,
             };
             await db.run(
-                'INSERT INTO users (id, username, name, uniqueId, createdAt, telegram_id, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.createdAt, newUser.telegram_id, newUser.avatar_url]
+                'INSERT INTO users (id, username, name, uniqueId, createdAt, telegram_id, avatar_url, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.createdAt, newUser.telegram_id, newUser.avatar_url, newUser.last_seen]
             );
             user = await db.get('SELECT * FROM users WHERE id = ?', newUser.id);
         }
@@ -453,7 +461,7 @@ router.post('/telegram-login', async (req: express.Request, res: express.Respons
     }
 });
 
-router.post('/telegram-webapp-login', async (req: express.Request, res: express.Response) => {
+router.post('/telegram-webapp-login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { initData } = req.body;
 
     if (!initData) {
@@ -471,6 +479,7 @@ router.post('/telegram-webapp-login', async (req: express.Request, res: express.
     try {
         let user = await db.get('SELECT * FROM users WHERE telegram_id = ?', id.toString());
         if (!user) {
+            const now = new Date().toISOString();
             const newUsername = `tg_${username || id}`;
             const existingUserByUsername = await db.get("SELECT id FROM users WHERE username = ? AND is_anonymous = 0", newUsername);
             
@@ -479,14 +488,15 @@ router.post('/telegram-webapp-login', async (req: express.Request, res: express.
                 username: existingUserByUsername ? `${newUsername}_${crypto.randomBytes(2).toString('hex')}` : newUsername,
                 name: `${first_name || ''}${last_name ? ' ' + last_name : ''}`.trim() || username || 'Telegram User',
                 uniqueId: existingUserByUsername ? `${newUsername}_${crypto.randomBytes(2).toString('hex')}` : newUsername,
-                createdAt: new Date().toISOString(),
+                createdAt: now,
                 telegram_id: id.toString(),
                 avatar_url: photo_url,
+                last_seen: now,
             };
 
             await db.run(
-                'INSERT INTO users (id, username, name, uniqueId, createdAt, telegram_id, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.createdAt, newUser.telegram_id, newUser.avatar_url]
+                'INSERT INTO users (id, username, name, uniqueId, createdAt, telegram_id, avatar_url, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.createdAt, newUser.telegram_id, newUser.avatar_url, newUser.last_seen]
             );
             user = await db.get('SELECT * FROM users WHERE id = ?', newUser.id);
         }
@@ -506,7 +516,7 @@ router.post('/telegram-webapp-login', async (req: express.Request, res: express.
     }
 });
 
-router.post('/magic-link-login', async (req: express.Request, res: express.Response) => {
+router.post('/magic-link-login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { token } = req.body;
     if (!token) return res.status(400).json({ message: 'Token is required.' });
 
@@ -534,7 +544,7 @@ router.post('/magic-link-login', async (req: express.Request, res: express.Respo
     }
 });
 
-router.post('/logout', (_req: express.Request, res: express.Response) => {
+router.post('/logout', (_req: ExpressRequest, res: ExpressResponse) => {
     res.cookie('token', '', {
         httpOnly: true,
         expires: new Date(0),
@@ -544,7 +554,7 @@ router.post('/logout', (_req: express.Request, res: express.Response) => {
     res.status(200).json({ message: 'Logged out successfully' });
 });
 
-router.post('/phone-request-code', async (req: express.Request, res: express.Response) => {
+router.post('/phone-request-code', async (req: ExpressRequest, res: ExpressResponse) => {
     const { phoneNumber, isRegistering } = req.body;
     if (!bot) return res.status(503).json({ message: "Telegram features are disabled."});
     
@@ -581,7 +591,7 @@ router.post('/phone-request-code', async (req: express.Request, res: express.Res
     }
 });
 
-router.post('/phone-verify-code', async (req: express.Request, res: express.Response) => {
+router.post('/phone-verify-code', async (req: ExpressRequest, res: ExpressResponse) => {
     const { phoneNumber, code } = req.body;
     const stored = phoneCodeStore[phoneNumber];
     if (stored && stored.code === code && stored.expires > Date.now()) {
@@ -592,7 +602,7 @@ router.post('/phone-verify-code', async (req: express.Request, res: express.Resp
     }
 });
 
-router.post('/phone-register', async (req: express.Request, res: express.Response) => {
+router.post('/phone-register', async (req: ExpressRequest, res: ExpressResponse) => {
     const { phoneNumber, username, password } = req.body;
     const stored = phoneCodeStore[phoneNumber];
 
@@ -608,6 +618,7 @@ router.post('/phone-register', async (req: express.Request, res: express.Respons
     
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
+    const now = new Date().toISOString();
     
     const newUser = {
         id: `user_${crypto.randomBytes(8).toString('hex')}`,
@@ -616,11 +627,12 @@ router.post('/phone-register', async (req: express.Request, res: express.Respons
         uniqueId: username,
         password_hash: passwordHash,
         phone_number: phoneNumber,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        last_seen: now,
     };
     
-    await db.run('INSERT INTO users (id, username, name, uniqueId, password_hash, phone_number, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.password_hash, newUser.phone_number, newUser.createdAt]);
+    await db.run('INSERT INTO users (id, username, name, uniqueId, password_hash, phone_number, createdAt, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [newUser.id, newUser.username, newUser.name, newUser.uniqueId, newUser.password_hash, newUser.phone_number, newUser.createdAt, newUser.last_seen]);
     
     delete phoneCodeStore[phoneNumber];
     
@@ -628,7 +640,7 @@ router.post('/phone-register', async (req: express.Request, res: express.Respons
     res.status(201).json(transformUser(userForClient));
 });
 
-router.post('/phone-login', async (req: express.Request, res: express.Response) => {
+router.post('/phone-login', async (req: ExpressRequest, res: ExpressResponse) => {
     const { phoneNumber, code } = req.body;
     const db = getDb();
     
@@ -655,7 +667,7 @@ router.post('/phone-login', async (req: express.Request, res: express.Response) 
 
 
 // --- 2FA Routes ---
-router.post('/2fa/enable-request', protect, async (req: express.Request, res: express.Response) => {
+router.post('/2fa/enable-request', protect, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const telegramAuthData = req.body;
     
@@ -682,7 +694,7 @@ router.post('/2fa/enable-request', protect, async (req: express.Request, res: ex
     }
 });
 
-router.post('/2fa/enable-verify', protect, async (req: express.Request, res: express.Response) => {
+router.post('/2fa/enable-verify', protect, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const { code, telegramId } = req.body;
     const stored = twoFactorCodeStore[userId];
@@ -697,14 +709,14 @@ router.post('/2fa/enable-verify', protect, async (req: express.Request, res: exp
     }
 });
 
-router.post('/2fa/disable', protect, async (req: express.Request, res: express.Response) => {
+router.post('/2fa/disable', protect, async (req: ExpressRequest, res: ExpressResponse) => {
     const userId = req.user!.id;
     const db = getDb();
     await db.run('UPDATE users SET is_2fa_enabled = 0 WHERE id = ?', userId);
     res.json({ message: '2FA disabled successfully.' });
 });
 
-router.post('/2fa/login-verify', async (req: express.Request, res: express.Response) => {
+router.post('/2fa/login-verify', async (req: ExpressRequest, res: ExpressResponse) => {
     const { userId, code } = req.body;
     const stored = twoFactorCodeStore[userId];
     

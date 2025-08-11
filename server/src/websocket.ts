@@ -384,7 +384,7 @@ export const initializeWebSocket = (io: Server) => {
                     const offlineTimestamp = new Date().toISOString();
                     await db.run('UPDATE users SET last_seen = ? WHERE id = ?', [offlineTimestamp, userId]);
                     console.log(`User ${userId} marked as offline at ${offlineTimestamp}.`);
-                    notifyContactsOfPresenceChange(io, userId, false);
+                    await notifyContactsOfPresenceChange(io, userId, false);
                 } catch (error) {
                     console.error(`Error during user disconnect cleanup for ${userId}:`, error);
                 }
