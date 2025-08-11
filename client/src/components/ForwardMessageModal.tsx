@@ -103,6 +103,7 @@ const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({ messageToForw
                             sender={sender}
                             onViewProfile={() => {}}
                             onContextMenu={() => {}}
+                            onMenuClick={() => {}}
                             onMediaClick={() => {}}
                             onToggleSelect={() => {}}
                             selectionMode={false}

@@ -8,6 +8,7 @@ import { push } from './push';
 import { config } from './config'; // Import hardcoded config
 import { CHAT_CONTACT_USER_FIELDS } from './sharedConstants';
 import crypto from 'crypto';
+import { onlineUsers } from './websocketStore';
 
 type AuthenticatedSocket = Socket & {
     user?: { id: string };
@@ -23,6 +24,7 @@ const addUserSocket = (userId: string, socketId: string) => {
         userSockets.set(userId, new Set());
     }
     userSockets.get(userId)!.add(socketId);
+    onlineUsers.add(userId);
 };
 
 const removeUserSocket = (userId: string, socketId: string) => {
@@ -30,6 +32,7 @@ const removeUserSocket = (userId: string, socketId: string) => {
         userSockets.get(userId)!.delete(socketId);
         if (userSockets.get(userId)!.size === 0) {
             userSockets.delete(userId);
+            onlineUsers.delete(userId);
         }
     }
 };
@@ -98,11 +101,13 @@ export const initializeWebSocket = (io: Server) => {
         if (!authSocket.user) return;
 
         const userId = authSocket.user.id;
+        const wasOffline = !userSockets.has(userId);
+
         authSocket.join(userId);
         addUserSocket(userId, authSocket.id);
         userWindowFocus.set(userId, true);
         
-        if (userSockets.get(userId)?.size === 1) {
+        if (wasOffline) {
             await db.run('UPDATE users SET last_seen = NULL WHERE id = ?', userId);
             console.log(`User connected: ${userId}`);
             notifyContactsOfPresenceChange(io, userId, true);
@@ -373,11 +378,13 @@ export const initializeWebSocket = (io: Server) => {
 
 
         authSocket.on('disconnect', async () => {
+            const wasLastSocket = userSockets.has(userId) && userSockets.get(userId)!.size === 1;
             removeUserSocket(userId, authSocket.id);
+
             io.to(activeCalls.get(userId)!).emit('call:end');
             activeCalls.delete(userId);
             
-            if (!userSockets.has(userId)) {
+            if (wasLastSocket && !userSockets.has(userId)) {
                 try {
                     userActiveChat.delete(userId);
                     userWindowFocus.delete(userId);

@@ -172,10 +172,8 @@
 .call-window-wrapper.minimized {
     @apply w-40 aspect-[3/4] rounded-lg shadow-2xl;
     /* Position is handled by transform for draggability */
-    bottom: 1rem;
-    right: 1rem;
-    /* Reset fullscreen properties */
-    top: auto;
-    left: auto;
+    /* Let the hook handle positioning via transform from a (0,0) origin */
+    top: 0;
+    left: 0;
     height: auto;
 }

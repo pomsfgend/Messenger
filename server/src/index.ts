@@ -1,4 +1,4 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import './types'; // Import for declaration merging
 import http from 'http';
 import https from 'https';
@@ -23,7 +23,7 @@ import adminRoutes from './routes/adminRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import statsRoutes from './routes/statsRoutes';
 import turnRoutes from './routes/turnRoutes';
-import { setIo } from './websocketStore';
+import { setIo, onlineUsers } from './websocketStore';
 
 
 const app = express();
@@ -83,10 +83,6 @@ const startServer = async () => {
     try {
         await initializeDb();
         console.log("Database initialized successfully.");
-        
-        // Cleanup presence state on startup
-        console.log("Cleaning up presence state: marking all users as offline...");
-        await getDb().run("UPDATE users SET last_seen = ? WHERE last_seen IS NULL", [new Date().toISOString()]);
         
         // Attempt to assign admin role on startup
         console.log("Attempting to assign initial admin roles...");
@@ -150,6 +146,7 @@ const startServer = async () => {
         
         setIo(io); // Store the io instance globally
         app.set('io', io); // For access in routes
+        app.set('onlineUsers', onlineUsers); // Make online user set available to routes
 
         initializePush();
         initializeAuthServices(io);
@@ -165,10 +162,10 @@ const startServer = async () => {
         app.use('/api/turn-creds', protect, turnRoutes); // TURN credentials endpoint
 
         // Health check endpoint
-        app.get('/api/health', (req: ExpressRequest, res: ExpressResponse) => res.status(200).json({ status: 'ok' }));
+        app.get('/api/health', (req: Request, res: Response) => res.status(200).json({ status: 'ok' }));
 
         // Global error handler
-        app.use((err: Error, req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
+        app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
             console.error("Global error handler caught:", err.stack);
             if (err instanceof MulterError) {
                 return res.status(400).json({ message: `File upload error: ${err.message}` });

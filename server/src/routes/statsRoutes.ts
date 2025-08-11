@@ -1,9 +1,9 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import express, { Request, Response } from 'express';
 import { getDb } from '../db';
 
 const router = express.Router();
 
-router.get('/', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const db = getDb();
         

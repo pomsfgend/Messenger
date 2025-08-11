@@ -1,4 +1,4 @@
-import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import express, { Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -23,7 +23,7 @@ const upload = multer({
 
 
 // NEW: Endpoint to handle file uploads for messages
-router.post('/upload', upload.single('mediaFile'), async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/upload', upload.single('mediaFile'), async (req: Request, res: Response) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
     }
@@ -47,7 +47,7 @@ router.post('/upload', upload.single('mediaFile'), async (req: ExpressRequest, r
 });
 
 
-router.get('/:chatId', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/:chatId', async (req: Request, res: Response) => {
     const { chatId } = req.params;
     const { limit = 50, before } = req.query;
     const userId = req.user!.id;
@@ -124,7 +124,7 @@ router.get('/:chatId', async (req: ExpressRequest, res: ExpressResponse) => {
     }
 });
 
-router.patch('/:messageId', async (req: ExpressRequest, res: ExpressResponse) => {
+router.patch('/:messageId', async (req: Request, res: Response) => {
     const { messageId } = req.params;
     const { content } = req.body;
     const userId = req.user!.id;
@@ -150,7 +150,7 @@ router.patch('/:messageId', async (req: ExpressRequest, res: ExpressResponse) =>
     }
 });
 
-router.delete('/:messageId', async (req: ExpressRequest, res: ExpressResponse) => {
+router.delete('/:messageId', async (req: Request, res: Response) => {
     const { messageId } = req.params;
     const userId = req.user!.id;
     const db = getDb();
@@ -183,7 +183,7 @@ router.delete('/:messageId', async (req: ExpressRequest, res: ExpressResponse) =
     }
 });
 
-router.post('/bulk-delete', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/bulk-delete', async (req: Request, res: Response) => {
     const { messageIds } = req.body;
     const userId = req.user!.id;
     const userRole = req.user!.role;
@@ -234,7 +234,7 @@ router.post('/bulk-delete', async (req: ExpressRequest, res: ExpressResponse) =>
     }
 });
 
-router.post('/:messageId/react', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/:messageId/react', async (req: Request, res: Response) => {
     const { messageId } = req.params;
     const { reaction } = req.body;
     const userId = req.user!.id;
@@ -264,7 +264,7 @@ router.post('/:messageId/react', async (req: ExpressRequest, res: ExpressRespons
 });
 
 
-router.post('/forward', async (req: ExpressRequest, res: ExpressResponse) => {
+router.post('/forward', async (req: Request, res: Response) => {
     const { messageId, targetChatIds, hideSender } = req.body;
     const forwarderId = req.user!.id;
     const db = getDb();
@@ -314,7 +314,7 @@ router.post('/forward', async (req: ExpressRequest, res: ExpressResponse) => {
     }
 });
 
-router.get('/:chatId/media', async (req: ExpressRequest, res: ExpressResponse) => {
+router.get('/:chatId/media', async (req: Request, res: Response) => {
     const { chatId } = req.params;
     const { type } = req.query;
     const userId = req.user!.id;

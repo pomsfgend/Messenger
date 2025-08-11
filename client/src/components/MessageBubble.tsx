@@ -150,6 +150,7 @@ interface MessageBubbleProps {
     onCancelUpload?: () => void;
     onViewProfile: (user: User) => void;
     onContextMenu: (event: React.MouseEvent, message: Message) => void;
+    onMenuClick: (event: React.MouseEvent, message: Message) => void;
     onMediaClick: (message: Message) => void;
     onToggleSelect: (messageId: string) => void;
     selectionMode: boolean;
@@ -160,7 +161,7 @@ interface MessageBubbleProps {
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
-    message, isOwn, sender, isPrivateChat, uploadProgress, onCancelUpload, onViewProfile, onContextMenu, onMediaClick, onToggleSelect,
+    message, isOwn, sender, isPrivateChat, uploadProgress, onCancelUpload, onViewProfile, onContextMenu, onMenuClick, onMediaClick, onToggleSelect,
     selectionMode, isSelected, isReacting, onReactionHandled, isTemporarilyDeleted
 }) => {
     const { currentUser } = useAuth();
@@ -328,7 +329,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                      {!selectionMode && (
                         <button 
-                            onClick={(e) => onContextMenu(e, message)} 
+                            onClick={(e) => onMenuClick(e, message)} 
                             className={`p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 ${isOwn ? '-translate-x-full' : 'translate-x-full'}`}
                         >
                             <FaEllipsisV className="w-4 h-4"/>

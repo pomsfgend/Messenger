@@ -588,9 +588,14 @@ const ChatWindow: React.FC<{
         }
     };
 
-    const onContextMenuAction = (action: Action) => {
-        action.action();
-        setContextMenu(null);
+    const handleShowContextMenu = (event: React.MouseEvent, message: Message) => {
+        event.preventDefault();
+        setContextMenu({ x: event.clientX, y: event.clientY, message });
+    };
+
+    const handleShowMenuFromClick = (event: React.MouseEvent, message: Message) => {
+        const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+        setContextMenu({ x: rect.left, y: rect.bottom + 8, message });
     };
 
     const getContextMenuActions = (message: Message): (Action | false | undefined)[] => [
@@ -668,7 +673,8 @@ const ChatWindow: React.FC<{
                         uploadProgress={uploadingFiles[msg.tempId!]?.progress}
                         onCancelUpload={() => uploadingFiles[msg.tempId!]?.cancel()}
                         onViewProfile={setViewingProfile}
-                        onContextMenu={(e, m) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, message: m }); }}
+                        onContextMenu={handleShowContextMenu}
+                        onMenuClick={handleShowMenuFromClick}
                         onMediaClick={(m) => {
                             const mediaItems = messages.filter(i => i.type === 'image' || i.type === 'video' || i.type === 'video_circle');
                             const startIndex = mediaItems.findIndex(i => i.id === m.id);

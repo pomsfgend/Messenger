@@ -21,6 +21,15 @@ export const useDraggable = (
         console.error("Failed to parse saved modal position", e);
       }
     }
+     // For the call window, we want a good default in the bottom right corner.
+    if (modalId === 'call-window') {
+        const width = 160; // Corresponds to w-40 class
+        const height = 213; // Corresponds to aspect-[3/4]
+        return {
+            x: window.innerWidth - width - 16, // 1rem padding
+            y: window.innerHeight - height - 16,
+        };
+    }
     return { x: 0, y: 0 };
   }, [modalId]);
 
